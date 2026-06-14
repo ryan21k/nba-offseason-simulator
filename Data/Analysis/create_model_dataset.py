@@ -15,3 +15,7 @@ os.makedirs("../Processed Data", exist_ok = True) #checks to see if the folder e
 model_df.to_csv("../Processed Data/team_strengths.csv")
 #output message
 print("Finished adding team strength data/features to dataset team_strengths.csv for model training.")
+
+#determines what features are indicative of winning
+cols = model_df.select_dtypes(include="number")
+print(cols.corr()["W"].sort_values(ascending=False))
