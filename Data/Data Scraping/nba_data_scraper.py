@@ -1,4 +1,3 @@
-from nba_api.stats.static import teams
 from nba_api.stats.endpoints import leaguedashteamstats
 import pandas as pd
 import time
