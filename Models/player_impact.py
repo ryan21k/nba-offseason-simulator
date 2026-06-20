@@ -39,7 +39,7 @@ rankings = df[['PLAYER_NAME', 'TEAM_ABBREVIATION', 'SEASON', 'PLAYER_IMPACT']].s
 print(rankings)
 
 csv_path = ROOT_DIR / "Data" / "Processed Data" / "player_impact_results.csv"
-rankings.to_csv(csv_path, index=False)
+df.to_csv(csv_path, index=False)
 
 #output message
 print("Finished adding player impact scores to player_impact_results.csv.")
