@@ -41,5 +41,6 @@ print(rankings)
 csv_path = ROOT_DIR / "Data" / "Processed Data" / "player_impact_results.csv"
 df.to_csv(csv_path, index=False)
 
-#output message
-print("Finished adding player impact scores to player_impact_results.csv.")
+
+print("\nTop 50 player seasons based on impact score for the 2025-26 season:")
+print(df[df['SEASON'] == '2025-26'].sort_values(by='PLAYER_IMPACT', ascending = False)[['PLAYER_NAME', 'TEAM_ABBREVIATION', 'PLAYER_IMPACT']].head(50))
