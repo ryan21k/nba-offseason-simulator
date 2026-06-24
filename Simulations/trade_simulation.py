@@ -72,7 +72,7 @@ class Trade:
         delta_team1, delta_team2 = team1_new_strength - team1_strength, team2_new_strength - team2_strength
 
         print(f"\n{team1} strength change: {delta_team1:.4f} (from {team1_strength:.4f} to {team1_new_strength:.4f})")
-        print(f"\n{team2} strength change: {delta_team2:.4f} (from {team2_strength:.4f} to {team2_new_strength:.4f})")
+        print(f"{team2} strength change: {delta_team2:.4f} (from {team2_strength:.4f} to {team2_new_strength:.4f})")
 
         print(f"\n{team1} trade grade: {self.grade(delta_team1)}")
         print(f"{team2} trade grade: {self.grade(delta_team2)}")
@@ -82,8 +82,8 @@ class Trade:
             team2: {'BEFORE': team2_strength, 'AFTER': team2_new_strength, 'DELTA': delta_team2}
         }
 
-if __name__ == "__main__":
-    simulate_trade = Trade()
-    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo", "Bobby Portis"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Kasparas Jakučionis"])
-    print("\nTrade Result:")
-    print(trade_result)
+# if __name__ == "__main__":
+#     simulate_trade = Trade()
+#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo", "Bobby Portis"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Kasparas Jakučionis"])
+#     print("\nTrade Result:")
+#     print(trade_result)
