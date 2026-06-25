@@ -7,6 +7,25 @@ class TradeFinder:
         self.trade_simulator = Trade()
         self.current = self.trade_simulator.current
 
+    def find_best_trade_targets(self, team, trade_grade = "C", min_impact = 0.2):
+        trades = self.find_optimal_trades(team, trade_grade, min_impact)
+        if trades.empty:
+            return trades, pd.DataFrame(), pd.DataFrame()
+        
+        best_targets = (trades.groupby(['OPPOSING_TEAM', 'PLAYER_RECEIVED']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'), BEST_TEAM_DELTA = ('TEAM_DELTA', 'max'), TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
+        best_targets = best_targets.sort_values(by='AVG_TRADE_SCORE', ascending=False).reset_index(drop=True)
+
+        best_assets = (trades.groupby(['PLAYER_SENT']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'),  TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
+        best_assets = best_assets.sort_values(by='AVG_TRADE_SCORE', ascending=False).reset_index(drop=True)
+
+        print(f"\nBest trade targets for {team} with a minimum grade of {trade_grade}:\n")
+        print(best_targets.head(10))
+
+        print(f"\nBest trade assets for {team} with a minimum grade of {trade_grade}:\n")
+        print(best_assets.head(10))
+
+        return trades, best_targets, best_assets
+
     def find_optimal_trades(self, team, trade_grade = "C", min_impact = 0.2):
         print(f"\nFinding optimal trades for {team} with a minimum grade of {trade_grade}...")
         roster = self.current[(self.current['TEAM_ABBREVIATION'] == team) & (self.current['PLAYER_IMPACT'] >= min_impact)]['PLAYER_NAME'].tolist()
@@ -60,15 +79,18 @@ class TradeFinder:
     def save_to_csv(self, trades, output_path):
         trades.to_csv(output_path, index=False)
         print(f"\nSaved potential trades to {output_path}.")
-if __name__ == "__main__":
-    trade_finder = TradeFinder()
-    calculated = trade_finder.find_optimal_trades(team = "MIL", trade_grade = "C", min_impact = 0.2)
 
-    if not calculated.empty:
-        output_path = (
-            Path(__file__).resolve().parent.parent
-            / "Data"
-            / "Processed Data"
-            / "potential_trades_MIL.csv"
-        )
-        trade_finder.save_to_csv(calculated, output_path)
+# if __name__ == "__main__":
+#     trade_finder = TradeFinder()
+#     team, trade_grade = "MIL", "C"
+#     min_impact = 0.2
+#     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
+
+#     if not calculated.empty:
+#         output_path = (
+#             Path(__file__).resolve().parent.parent
+#             / "Data"
+#             / "Processed Data"
+#             / f"potential_trades_{team}.csv"
+#         )
+#         trade_finder.save_to_csv(calculated, output_path)
