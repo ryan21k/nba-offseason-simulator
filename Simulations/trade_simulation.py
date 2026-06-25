@@ -35,52 +35,60 @@ class Trade:
                 return "A+"
             case _ if delta >= 0.03:
                 return "A"
-            case _ if delta >= 0.01:
+            case _ if delta >= 0.015:
                 return "B"
-            case _ if delta >= -0.01:
+            case _ if delta >= 0:
                 return "C"
-            case _ if delta >= -0.03:
+            case _ if delta >= -0.015:
                 return "D"
             case _:
                 return "F"
+
+    def evaluate_trade(self, team1, team2, players_1, players_2):
+        roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
+        roster2 = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
+
+        team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
+        team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
+
+        trade_package_1 = roster1[roster1['PLAYER_NAME'].isin(players_1)]
+        trade_package_2 = roster2[roster2['PLAYER_NAME'].isin(players_2)]
+
+        if (len(trade_package_1) == 0) or (len(trade_package_2) == 0):
+            print("Error: One of the teams does not have the specified player(s).")
+            return None
+        
+        if (len(trade_package_1) != len(players_1)) or (len(trade_package_2) != len(players_2)):
+            print("Error: One of the teams does not have all the specified player(s).")
+            return None
+        
+        team1_new_strength = self.calculate_team_strength(roster1[~roster1['PLAYER_NAME'].isin(players_1)]['PLAYER_IMPACT'].tolist() + trade_package_2['PLAYER_IMPACT'].tolist())
+        team2_new_strength = self.calculate_team_strength(roster2[~roster2['PLAYER_NAME'].isin(players_2)]['PLAYER_IMPACT'].tolist() + trade_package_1['PLAYER_IMPACT'].tolist())
+
+        delta_team1, delta_team2 = team1_new_strength - team1_strength, team2_new_strength - team2_strength
+
+        return {
+            team1: {'BEFORE': team1_strength, 'AFTER': team1_new_strength, 'DELTA': delta_team1, 'GRADE': self.grade(delta_team1)},
+            team2: {'BEFORE': team2_strength, 'AFTER': team2_new_strength, 'DELTA': delta_team2, 'GRADE': self.grade(delta_team2)}
+        }
 
     def perform_trade(self, team1, team2, players_1, players_2):
         print(f"\nSimulating trade between {team1} and {team2}...")
         print(f"{team1} send the following player(s) to {team2}: {', '.join(players_1)}")
         print(f"{team2} send the following player(s) to {team1}: {', '.join(players_2)}")
 
-        team1_roster = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
-        team2_roster = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
-
-        team1_strength = self.calculate_team_strength(team1_roster['PLAYER_IMPACT'].tolist())
-        team2_strength = self.calculate_team_strength(team2_roster['PLAYER_IMPACT'].tolist())
-
-        package_1 = team1_roster[team1_roster['PLAYER_NAME'].isin(players_1)].copy()
-        package_2 = team2_roster[team2_roster['PLAYER_NAME'].isin(players_2)].copy()
-
-        if (len(package_1) == 0) or (len(package_2) == 0):
-            print("Error: One of the teams does not have the specified player(s).")
+        trade_eval = self.evaluate_trade(team1, team2, players_1, players_2)
+        if trade_eval is None:
+            print("Trade evaluation failed. Please check the player names and try again.")
             return None
-        
-        if (len(package_1) != len(players_1)) or (len(package_2) != len(players_2)):
-            print("Error: One of the teams does not have all the specified player(s).")
-            return None
-        
-        team1_new_strength = self.calculate_team_strength(team1_roster[~team1_roster['PLAYER_NAME'].isin(players_1)]['PLAYER_IMPACT'].tolist() + package_2['PLAYER_IMPACT'].tolist())
-        team2_new_strength = self.calculate_team_strength(team2_roster[~team2_roster['PLAYER_NAME'].isin(players_2)]['PLAYER_IMPACT'].tolist() + package_1['PLAYER_IMPACT'].tolist())
 
-        delta_team1, delta_team2 = team1_new_strength - team1_strength, team2_new_strength - team2_strength
+        print(f"\n{team1} strength change: {trade_eval[team1]['DELTA']:.4f}")
+        print(f"{team2} strength change: {trade_eval[team2]['DELTA']:.4f}")
 
-        print(f"\n{team1} strength change: {delta_team1:.4f} (from {team1_strength:.4f} to {team1_new_strength:.4f})")
-        print(f"{team2} strength change: {delta_team2:.4f} (from {team2_strength:.4f} to {team2_new_strength:.4f})")
+        print(f"\n{team1} trade grade: {trade_eval[team1]['GRADE']}")
+        print(f"{team2} trade grade: {trade_eval[team2]['GRADE']}")
 
-        print(f"\n{team1} trade grade: {self.grade(delta_team1)}")
-        print(f"{team2} trade grade: {self.grade(delta_team2)}")
-
-        return {
-            team1: {'BEFORE': team1_strength, 'AFTER': team1_new_strength, 'DELTA': delta_team1},
-            team2: {'BEFORE': team2_strength, 'AFTER': team2_new_strength, 'DELTA': delta_team2}
-        }
+        return trade_eval
 
 # if __name__ == "__main__":
 #     simulate_trade = Trade()
