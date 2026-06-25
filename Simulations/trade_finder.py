@@ -41,7 +41,7 @@ class TradeFinder:
             for player in roster:
                 for opp_player in opp_roster:
                     checked_trades += 1
-                    outcome = self.trade_simulator.perform_trade(team, opp, [player], [opp_player])
+                    outcome = self.trade_simulator.perform_trade(team, opp, [player], [opp_player], roster1 = roster, roster2 = opp_roster, silent = True)
 
                     if outcome is None:
                         continue

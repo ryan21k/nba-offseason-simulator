@@ -44,9 +44,11 @@ class Trade:
             case _:
                 return "F"
 
-    def evaluate_trade(self, team1, team2, players_1, players_2):
-        roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
-        roster2 = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
+    def evaluate_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None):
+        if roster1 is None:
+            roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
+        if roster2 is None:
+            roster2 = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
 
         team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
         team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
@@ -72,21 +74,24 @@ class Trade:
             team2: {'BEFORE': team2_strength, 'AFTER': team2_new_strength, 'DELTA': delta_team2, 'GRADE': self.grade(delta_team2)}
         }
 
-    def perform_trade(self, team1, team2, players_1, players_2):
-        print(f"\nSimulating trade between {team1} and {team2}...")
-        print(f"{team1} send the following player(s) to {team2}: {', '.join(players_1)}")
-        print(f"{team2} send the following player(s) to {team1}: {', '.join(players_2)}")
+    def perform_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
+        if not silent:
+            print(f"\nSimulating trade between {team1} and {team2}...")
+            print(f"{team1} send the following player(s) to {team2}: {', '.join(players_1)}")
+            print(f"{team2} send the following player(s) to {team1}: {', '.join(players_2)}")
 
         trade_eval = self.evaluate_trade(team1, team2, players_1, players_2)
         if trade_eval is None:
-            print("Trade evaluation failed. Please check the player names and try again.")
+            if not silent:
+                print("Trade evaluation failed. Please check the player names and try again.")
             return None
 
-        print(f"\n{team1} strength change: {trade_eval[team1]['DELTA']:.4f}")
-        print(f"{team2} strength change: {trade_eval[team2]['DELTA']:.4f}")
+        if not silent:
+            print(f"\n{team1} strength change: {trade_eval[team1]['DELTA']:.4f}")
+            print(f"{team2} strength change: {trade_eval[team2]['DELTA']:.4f}")
 
-        print(f"\n{team1} trade grade: {trade_eval[team1]['GRADE']}")
-        print(f"{team2} trade grade: {trade_eval[team2]['GRADE']}")
+            print(f"\n{team1} trade grade: {trade_eval[team1]['GRADE']}")
+            print(f"{team2} trade grade: {trade_eval[team2]['GRADE']}")
 
         return trade_eval
 
