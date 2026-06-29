@@ -9,10 +9,38 @@ player_impacts = (
     / "player_impact_v2.csv"
 )
 
+salaries = (
+    ROOT_DIR
+    / "Data"
+    / "Processed Data"
+    / "player_salary_data.csv"
+)
+
 class Trade:
     def __init__(self):
         self.player_impacts = pd.read_csv(player_impacts)
         self.current = self.player_impacts[self.player_impacts['SEASON'] == "2025-26"].copy()
+        self.load_player_salaries()
+    
+    def load_player_salaries(self):
+        try:
+            salary_df = pd.read_csv(salaries)
+
+            if '2025_26_SALARY' in salary_df.columns:
+                column = '2025_26_SALARY'
+            else:
+                column = '2025_26'
+            salary_df['CLEAN_SALARY'] = (salary_df[column].astype(str).str.replace("$", "", regex = False).str.replace(",", "", regex = False))
+            salary_df['CLEAN_SALARY'] = pd.to_numeric(salary_df['CLEAN_SALARY'], errors='coerce').fillna(0)
+
+            cleaned = salary_df[['PLAYER_NAME', 'CLEAN_SALARY']].drop_duplicates(subset=['PLAYER_NAME'])
+            self.current = pd.merge(self.current, cleaned, on = 'PLAYER_NAME', how = 'left')
+            self.current['CLEAN_SALARY'] = self.current['CLEAN_SALARY'].fillna(1272870)
+        except Exception as error:
+            print(f"Couldn't load salary matching rules/values ({error}). Reset to 0.")
+            self.current['CLEAN_SALARY'] = 0
+    
+
     
     def calculate_team_strength(self, changes):
         impacts = sorted(changes, reverse=True)[:10]
