@@ -28,7 +28,9 @@ class TradeFinder:
 
     def find_optimal_trades(self, team, trade_grade = "C", min_impact = 0.2):
         print(f"\nFinding optimal trades for {team} with a minimum grade of {trade_grade}...")
-        roster = self.current[(self.current['TEAM_ABBREVIATION'] == team) & (self.current['PLAYER_IMPACT'] >= min_impact)]['PLAYER_NAME'].tolist()
+        roster = self.current[self.current['TEAM_ABBREVIATION'] == team].copy()
+        tradeable = roster[roster['PLAYER_IMPACT'] >= min_impact]['PLAYER_NAME'].tolist()
+
         rest_of_league = self.current[self.current['TEAM_ABBREVIATION'] != team]['TEAM_ABBREVIATION'].unique().tolist()
 
         potential_trades = []
@@ -37,9 +39,10 @@ class TradeFinder:
         checked_trades = 0
 
         for opp in rest_of_league:
-            opp_roster = self.current[(self.current['TEAM_ABBREVIATION'] == opp) & (self.current['PLAYER_IMPACT'] >= min_impact)]['PLAYER_NAME'].tolist()
-            for player in roster:
-                for opp_player in opp_roster:
+            opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp].copy()
+            opp_tradeable = opp_roster[opp_roster['PLAYER_IMPACT'] >= min_impact]['PLAYER_NAME'].tolist()
+            for player in tradeable:
+                for opp_player in opp_tradeable:
                     checked_trades += 1
                     outcome = self.trade_simulator.perform_trade(team, opp, [player], [opp_player], roster1 = roster, roster2 = opp_roster, silent = True)
 

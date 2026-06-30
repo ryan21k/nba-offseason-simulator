@@ -17,6 +17,10 @@ salaries = (
 )
 
 class Trade:
+    SEASON_SALARY_CAP = 154647000
+    FIRST_APRON = 195945000
+    SECOND_APRON = 207824000
+
     def __init__(self):
         self.player_impacts = pd.read_csv(player_impacts)
         self.current = self.player_impacts[self.player_impacts['SEASON'] == "2025-26"].copy()
@@ -40,7 +44,49 @@ class Trade:
             print(f"Couldn't load salary matching rules/values ({error}). Reset to 0.")
             self.current['CLEAN_SALARY'] = 0
     
+    def get_team_salary(self, roster):
+        return roster['CLEAN_SALARY'].sum()
+    
+    def get_apron(self, total):
+        if total >= self.SECOND_APRON:
+            status = "SECOND_APRON"
+        elif total >= self.FIRST_APRON:
+            status = "FIRST_APRON"
+        else:
+            status = "NORMAL"
+        return status
+    
+    def check_legality(self, status, payroll, incoming, outgoing, outgoing_players_num, incoming_salary_players):
+        if status == "SECOND_APRON":
+            if outgoing_players_num > 1 or len(incoming_salary_players) > 1:
+                return False
+            
+            if len(incoming_salary_players) == 1 and incoming_salary_players[0] <= 1272870:
+                return True
+            if incoming <= outgoing:
+                return True
+            return False
+        elif status == "FIRST_APRON":
+            if outgoing_players_num > 1:
+                return False
+            
+            if len(incoming_salary_players) == 1 and incoming_salary_players[0] <= 1272870:
+                return True
+            if incoming <= outgoing:
+                return True
+            return False
+        else:
+            outgoing_payroll = payroll - outgoing
+            leftover_capspace = self.SEASON_SALARY_CAP - outgoing_payroll
 
+            if leftover_capspace >= incoming:
+                return True
+            
+            max_allowed = 1.25 * outgoing + 100000
+
+            if incoming <= max_allowed:
+                return True
+            return False
     
     def calculate_team_strength(self, changes):
         impacts = sorted(changes, reverse=True)[:10]
@@ -72,26 +118,42 @@ class Trade:
             case _:
                 return "F"
 
-    def evaluate_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None):
+    def evaluate_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
         if roster1 is None:
             roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
         if roster2 is None:
             roster2 = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
 
-        team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
-        team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
-
         trade_package_1 = roster1[roster1['PLAYER_NAME'].isin(players_1)]
         trade_package_2 = roster2[roster2['PLAYER_NAME'].isin(players_2)]
 
         if (len(trade_package_1) == 0) or (len(trade_package_2) == 0):
-            print("Error: One of the teams does not have the specified player(s).")
+            if not silent:
+                print("Error: One of the teams does not have the specified player(s).")
             return None
         
         if (len(trade_package_1) != len(players_1)) or (len(trade_package_2) != len(players_2)):
-            print("Error: One of the teams does not have all the specified player(s).")
+            if not silent:
+                print("Error: One of the teams does not have all the specified player(s).")
             return None
         
+        team1_payroll, team2_payroll = roster1['CLEAN_SALARY'].sum(), roster2['CLEAN_SALARY'].sum()
+        team1_apron, team2_apron = self.get_apron(team1_payroll), self.get_apron(team2_payroll)
+        team1_outgoing_payroll, team2_outgoing_payroll = trade_package_1['CLEAN_SALARY'].sum(), trade_package_2['CLEAN_SALARY'].sum()
+
+        if not self.check_legality(team1_apron, team1_payroll, team2_outgoing_payroll, team1_outgoing_payroll, len(players_1), trade_package_2['CLEAN_SALARY'].tolist()):
+            if not silent:
+                print(f"Trade cannot be completed. There are existing apron/salary matching restrictions that have been violated for {team1} ({team1_apron}).")
+            return None
+        
+        if not self.check_legality(team2_apron, team2_payroll, team1_outgoing_payroll, team2_outgoing_payroll, len(players_2), trade_package_1['CLEAN_SALARY'].tolist()):
+            if not silent:
+                print(f"Trade cannot be completed. There are existing apron/salary matching restrictions that have been violated for {team2} ({team2_apron}).")
+            return None
+
+        team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
+        team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
+
         team1_new_strength = self.calculate_team_strength(roster1[~roster1['PLAYER_NAME'].isin(players_1)]['PLAYER_IMPACT'].tolist() + trade_package_2['PLAYER_IMPACT'].tolist())
         team2_new_strength = self.calculate_team_strength(roster2[~roster2['PLAYER_NAME'].isin(players_2)]['PLAYER_IMPACT'].tolist() + trade_package_1['PLAYER_IMPACT'].tolist())
 
@@ -108,10 +170,10 @@ class Trade:
             print(f"{team1} send the following player(s) to {team2}: {', '.join(players_1)}")
             print(f"{team2} send the following player(s) to {team1}: {', '.join(players_2)}")
 
-        trade_eval = self.evaluate_trade(team1, team2, players_1, players_2)
+        trade_eval = self.evaluate_trade(team1, team2, players_1, players_2, roster1 = roster1, roster2 = roster2, silent = silent)
         if trade_eval is None:
             if not silent:
-                print("Trade evaluation failed. Please check the player names and try again.")
+                print("Trade evaluation failed. Either the player names are incorrect or the financial metrics violate CBA parameters. Please try again.")
             return None
 
         if not silent:
@@ -123,8 +185,8 @@ class Trade:
 
         return trade_eval
 
-# if __name__ == "__main__":
-#     simulate_trade = Trade()
-#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo", "Bobby Portis"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Kasparas Jakučionis"])
-#     print("\nTrade Result:")
-#     print(trade_result)
+if __name__ == "__main__":
+    simulate_trade = Trade()
+    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo", "Bobby Portis"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Kasparas Jakučionis"])
+    print("\nTrade Result:")
+    print(trade_result)
