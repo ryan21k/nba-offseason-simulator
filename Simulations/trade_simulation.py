@@ -16,6 +16,13 @@ salaries = (
     / "player_salary_data.csv"
 )
 
+contract_values = (
+    ROOT_DIR
+    / "Data"
+    / "Processed Data"
+    / "contract_value.csv"
+)
+
 class Trade:
     SEASON_SALARY_CAP = 154647000
     FIRST_APRON = 195945000
@@ -25,6 +32,7 @@ class Trade:
         self.player_impacts = pd.read_csv(player_impacts)
         self.current = self.player_impacts[self.player_impacts['SEASON'] == "2025-26"].copy()
         self.load_player_salaries()
+        self.load_contract_vals()
     
     def load_player_salaries(self):
         try:
@@ -43,6 +51,15 @@ class Trade:
         except Exception as error:
             print(f"Couldn't load salary matching rules/values ({error}). Reset to 0.")
             self.current['CLEAN_SALARY'] = 0
+    
+    def load_contract_vals(self):
+        try:
+            contract_vals = pd.read_csv(contract_values)[['PLAYER_NAME', 'SCALED_CONTRACT_VAL']]
+            self.current = pd.merge(self.current, contract_vals, on='PLAYER_NAME', how='left')
+            self.current['SCALED_CONTRACT_VAL'] = self.current['SCALED_CONTRACT_VAL'].fillna(0.5)
+        except Exception as error:
+            print(f"Couldn't load contract values ({error}). Defaulting all players to neutral.")
+            self.current['SCALED_CONTRACT_VAL'] = 0.5
     
     def get_team_salary(self, roster):
         return roster['CLEAN_SALARY'].sum()
@@ -82,7 +99,12 @@ class Trade:
             if leftover_capspace >= incoming:
                 return True
             
-            max_allowed = 1.25 * outgoing + 100000
+            if outgoing <= 7500000:
+                max_allowed = 2.0 * outgoing + 250000
+            elif outgoing <= 29000000:
+                max_allowed = outgoing + 7500000
+            else:
+                max_allowed = 1.25 * outgoing + 250000
 
             if incoming <= max_allowed:
                 return True
@@ -111,10 +133,16 @@ class Trade:
                 return "A"
             case _ if delta >= 0.015:
                 return "B"
-            case _ if delta >= 0:
+            case _ if delta >= 0.005:
+                return "C+"
+            case _ if delta >= -0.005:
                 return "C"
             case _ if delta >= -0.015:
+                return "C-"
+            case _ if delta >= -0.03:
                 return "D"
+            case _ if delta >= -0.05:
+                return "D-"
             case _:
                 return "F"
 
@@ -157,11 +185,17 @@ class Trade:
         team1_new_strength = self.calculate_team_strength(roster1[~roster1['PLAYER_NAME'].isin(players_1)]['PLAYER_IMPACT'].tolist() + trade_package_2['PLAYER_IMPACT'].tolist())
         team2_new_strength = self.calculate_team_strength(roster2[~roster2['PLAYER_NAME'].isin(players_2)]['PLAYER_IMPACT'].tolist() + trade_package_1['PLAYER_IMPACT'].tolist())
 
-        delta_team1, delta_team2 = team1_new_strength - team1_strength, team2_new_strength - team2_strength
+        delta_strength_t1, delta_strength_t2 = team1_new_strength - team1_strength, team2_new_strength - team2_strength
+        assets_value_t1, assets_value_t2 = trade_package_1['SCALED_CONTRACT_VAL'].sum(), trade_package_2['SCALED_CONTRACT_VAL'].sum()
+        
+        delta_financial_t1  = (assets_value_t2 - assets_value_t1) * 0.1
+        delta_financial_t2 = (assets_value_t1 - assets_value_t2) * 0.1
+
+        delta_team1, delta_team2 = (0.7 * delta_strength_t1) + (0.3 * delta_financial_t1), (0.7 * delta_strength_t2) + (0.3 * delta_financial_t2)
 
         return {
-            team1: {'BEFORE': team1_strength, 'AFTER': team1_new_strength, 'DELTA': delta_team1, 'GRADE': self.grade(delta_team1)},
-            team2: {'BEFORE': team2_strength, 'AFTER': team2_new_strength, 'DELTA': delta_team2, 'GRADE': self.grade(delta_team2)}
+            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1)},
+            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2)}
         }
 
     def perform_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
@@ -187,6 +221,6 @@ class Trade:
 
 if __name__ == "__main__":
     simulate_trade = Trade()
-    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo", "Bobby Portis"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Kasparas Jakučionis"])
+    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Nikola Jović"])
     print("\nTrade Result:")
     print(trade_result)
