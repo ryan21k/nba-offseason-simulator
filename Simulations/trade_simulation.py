@@ -219,8 +219,8 @@ class Trade:
 
         return trade_eval
 
-if __name__ == "__main__":
-    simulate_trade = Trade()
-    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Nikola Jović"])
-    print("\nTrade Result:")
-    print(trade_result)
+# if __name__ == "__main__":
+#     simulate_trade = Trade()
+#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Nikola Jović"])
+#     print("\nTrade Result:")
+#     print(trade_result)

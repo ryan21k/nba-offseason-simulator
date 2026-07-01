@@ -37,7 +37,7 @@ class TradeFinder:
         rest_of_league = self.current[self.current['TEAM_ABBREVIATION'] != team]['TEAM_ABBREVIATION'].unique().tolist()
 
         potential_trades = []
-        grades = ["F", "D", "C", "B", "A", "A+"]
+        grades = ["F", "D-", "D", "C-", "C", "C+", "B", "A", "A+"]
         acceptable_grades = grades.index(trade_grade)
         checked_trades = 0
 
@@ -78,7 +78,7 @@ class TradeFinder:
                         continue
                     
                     delta_team, delta_opp = outcome[team]['DELTA'], outcome[opp]['DELTA']
-                    grade_self, grade_opp = self.trade_simulator.grade(delta_team), self.trade_simulator.grade(delta_opp)
+                    grade_self, grade_opp = outcome[team]['GRADE'], outcome[opp]['GRADE']
 
                     if grades.index(grade_self) >= acceptable_grades and grades.index(grade_opp) >= acceptable_grades:
                         reasonability = abs(delta_team - delta_opp)
@@ -89,6 +89,8 @@ class TradeFinder:
                             'PLAYER_SENT': " + ".join(sending),
                             'PLAYER_RECEIVED': " + ".join(getting),
                             'TEAM_DELTA': delta_team,
+                            'STRENGTH_DELTA': outcome[team]['STRENGTH_DELTA'],
+                            'FINANCIAL_DELTA': outcome[team]['FINANCIAL_DELTA'],
                             'OPPOSING_TEAM_DELTA': delta_opp,
                             'TEAM_GRADE': grade_self,
                             'OPPOSING_TEAM_GRADE': grade_opp,
@@ -102,7 +104,7 @@ class TradeFinder:
             trades = trades.sort_values(by='TRADE_SCORE', ascending=False).reset_index(drop=True)
             print(f"\nCalculated {len(trades)} potential trades from {checked_trades} checked trades for {team} with a minimum grade of {trade_grade}.")
             print(f"Top 25 potential trades for {team} with a minimum grade of {trade_grade}:\n")
-            print(trades[['OPPOSING_TEAM', 'PLAYER_SENT', 'PLAYER_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'FAIRNESS_SCORE', 'TRADE_SCORE']].head(25))
+            print(trades[['OPPOSING_TEAM', 'PLAYER_SENT', 'PLAYER_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'TRADE_SCORE']].head(25))
         else:
             print(f"\nNo potential trades found for {team} with a minimum grade of {trade_grade}.")
         
