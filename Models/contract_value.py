@@ -30,8 +30,8 @@ salaries['2025_26_SALARY'] = pd.to_numeric(salaries['2025_26_SALARY'], errors = 
 salary_impact = impacts.merge(salaries, on = ['PLAYER_NAME', 'TEAM_ABBREVIATION'], how = "left").dropna(subset = ['2025_26_SALARY'])
  
 salary_impact['SALARY_MIL'] = salary_impact['2025_26_SALARY'] / 1000000
-#expected salary based on player impact; $54,126,450 was the max salary for 25/26 season, 1.5 is just the chosen value for exponential scaling
-salary_impact['EXPECTED_VAL_MIL'] = (salary_impact['PLAYER_IMPACT'] / salary_impact['PLAYER_IMPACT'].max()) ** 1.5 * 54126450
+#expected value based on player impact; $54,126,450 was the max salary for 25/26 season, 1.5 is just the chosen value for exponential scaling
+salary_impact['EXPECTED_VAL_MIL'] = (salary_impact['PLAYER_IMPACT'] / salary_impact['PLAYER_IMPACT'].max()) ** 1.5 * 54.126450
 
 salary_impact['SURPLUS'] = salary_impact['EXPECTED_VAL_MIL'] - salary_impact['SALARY_MIL']
 salary_impact['CLIPPED_SURPLUS'] = salary_impact['SURPLUS'].clip(lower=-30.0) #removes lower outliers by clipping neg assets to reasonable floor
