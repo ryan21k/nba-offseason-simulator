@@ -23,6 +23,13 @@ contract_values = (
     / "contract_value.csv"
 )
 
+player_potentials = (
+    ROOT_DIR
+    / "Data"
+    / "Processed Data"
+    / "player_potential_evaluation.csv"
+)
+
 class Trade:
     SEASON_SALARY_CAP = 154647000
     FIRST_APRON = 195945000
@@ -33,6 +40,7 @@ class Trade:
         self.current = self.player_impacts[self.player_impacts['SEASON'] == "2025-26"].copy()
         self.load_player_salaries()
         self.load_contract_vals()
+        self.load_player_potentials()
     
     def load_player_salaries(self):
         try:
@@ -61,6 +69,15 @@ class Trade:
             print(f"Couldn't load contract values ({error}). Defaulting all players to neutral.")
             self.current['SCALED_CONTRACT_VAL'] = 0.5
     
+    def load_player_potentials(self):
+        try:
+            potentials = pd.read_csv(player_potentials)[['PLAYER_NAME', 'ASSET_VALUE']]
+            self.current = pd.merge(self.current, potentials, on='PLAYER_NAME', how='left')
+            self.current['ASSET_VALUE'] = self.current['ASSET_VALUE'].fillna(0.0)
+        except Exception as error:
+            print(f"Couldn't load player potential values ({error}). Setting to 0.")
+            self.current['ASSET_VALUE'] = 0.0
+
     def get_team_salary(self, roster):
         return roster['CLEAN_SALARY'].sum()
     
@@ -191,11 +208,17 @@ class Trade:
         delta_financial_t1  = (assets_value_t2 - assets_value_t1) * 0.1
         delta_financial_t2 = (assets_value_t1 - assets_value_t2) * 0.1
 
-        delta_team1, delta_team2 = (0.7 * delta_strength_t1) + (0.3 * delta_financial_t1), (0.7 * delta_strength_t2) + (0.3 * delta_financial_t2)
+        gained_potential_t1 = trade_package_2['ASSET_VALUE'].sum()
+        lost_potential_t1 = trade_package_1['ASSET_VALUE'].sum()
+
+        delta_potential_t1 = gained_potential_t1 - lost_potential_t1
+        delta_potential_t2 = lost_potential_t1 - gained_potential_t1
+
+        delta_team1, delta_team2 = (0.6 * delta_strength_t1) + (0.2 * delta_financial_t1) + (0.2 * delta_potential_t1), (0.6 * delta_strength_t2) + (0.2 * delta_financial_t2) + (0.2 * delta_potential_t2)
 
         return {
-            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1)},
-            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2)}
+            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1)},
+            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'POTENTIAL_DELTA': float(delta_potential_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2)}
         }
 
     def perform_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
