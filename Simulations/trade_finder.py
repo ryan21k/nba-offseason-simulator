@@ -92,6 +92,7 @@ class TradeFinder:
                             'STRENGTH_DELTA': outcome[team]['STRENGTH_DELTA'],
                             'FINANCIAL_DELTA': outcome[team]['FINANCIAL_DELTA'],
                             'POTENTIAL_DELTA': outcome[team]['POTENTIAL_DELTA'],
+                            'ROSTER_FIT_DELTA': outcome[team]['ROSTER_FIT_DELTA'],
                             'OPPOSING_TEAM_DELTA': delta_opp,
                             'TEAM_GRADE': grade_self,
                             'OPPOSING_TEAM_GRADE': grade_opp,
@@ -105,7 +106,7 @@ class TradeFinder:
             trades = trades.sort_values(by='TRADE_SCORE', ascending=False).reset_index(drop=True)
             print(f"\nCalculated {len(trades)} potential trades from {checked_trades} checked trades for {team} with a minimum grade of {trade_grade}.")
             print(f"Top 25 potential trades for {team} with a minimum grade of {trade_grade}:\n")
-            print(trades[['OPPOSING_TEAM', 'PLAYER_SENT', 'PLAYER_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'TRADE_SCORE']].head(25))
+            print(trades[['OPPOSING_TEAM', 'PLAYER_SENT', 'PLAYER_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'ROSTER_FIT_DELTA', 'TRADE_SCORE']].head(25))
         else:
             print(f"\nNo potential trades found for {team} with a minimum grade of {trade_grade}.")
         
