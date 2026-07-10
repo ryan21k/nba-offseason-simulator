@@ -1,8 +1,23 @@
 from pathlib import Path
-from narwhals import col
 import pandas as pd
+import sys, importlib.util
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+
+module_path = (
+    ROOT_DIR 
+    / "Models"
+    / "Draft Pick Valuation"
+    / "draft_pick_valuation.py"
+)
+
+spec = importlib.util.spec_from_file_location("draft_pick_valuation", module_path)
+draft_pick_module = importlib.util.module_from_spec(spec)
+sys.modules["draft_pick_valuation"] = draft_pick_module
+spec.loader.exec_module(draft_pick_module)
+
+DraftPickValuation = draft_pick_module.DraftPick
+
 player_impacts = (
     ROOT_DIR
     / "Data"
@@ -46,6 +61,7 @@ class Trade:
     def __init__(self):
         self.player_impacts = pd.read_csv(player_impacts)
         self.current = self.player_impacts[self.player_impacts['SEASON'] == "2025-26"].copy()
+        self.pick_eval = DraftPickValuation()
         self.load_player_salaries()
         self.load_contract_vals()
         self.load_player_potentials()
@@ -224,12 +240,41 @@ class Trade:
                 return "D-"
             case _:
                 return "F"
+    
+    def value_assets(self, team_abbreviation, assets, strength):
+        players = []
+        pick_val_sum = 0.0
 
-    def evaluate_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
+        for asset in assets:
+            if ("1st" in asset) or ("2nd" in asset) or ("Pick" in asset):
+                if "2027" in asset:
+                    years_out = 2
+                else:
+                    years_out = 1
+                protection = "none"
+
+                if "top3" in asset.lower():
+                    protection = "top3"
+                if "top10" in asset.lower():
+                    protection = "top10"
+                
+                pick_val = self.pick_eval.determine_implied_val(strength, years_out, protection)
+                pick_val_sum += pick_val
+            else:
+                players.append(asset)
+        return players, pick_val_sum
+
+    def evaluate_trade(self, team1, team2, assets_1, assets_2, roster1 = None, roster2 = None, silent = False):
         if roster1 is None:
             roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
         if roster2 is None:
             roster2 = self.current[self.current['TEAM_ABBREVIATION'] == team2].copy()
+        
+        team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
+        team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
+        
+        players_1, picks_t1_val = self.value_assets(team1, assets_1, team1_strength)
+        players_2, picks_t2_val = self.value_assets(team2, assets_2, team2_strength)
 
         trade_package_1 = roster1[roster1['PLAYER_NAME'].isin(players_1)]
         trade_package_2 = roster2[roster2['PLAYER_NAME'].isin(players_2)]
@@ -258,9 +303,6 @@ class Trade:
                 print(f"Trade cannot be completed. There are existing apron/salary matching restrictions that have been violated for {team2} ({team2_apron}).")
             return None
 
-        team1_strength = self.calculate_team_strength(roster1['PLAYER_IMPACT'].tolist())
-        team2_strength = self.calculate_team_strength(roster2['PLAYER_IMPACT'].tolist())
-
         team1_new_strength = self.calculate_team_strength(roster1[~roster1['PLAYER_NAME'].isin(players_1)]['PLAYER_IMPACT'].tolist() + trade_package_2['PLAYER_IMPACT'].tolist())
         team2_new_strength = self.calculate_team_strength(roster2[~roster2['PLAYER_NAME'].isin(players_2)]['PLAYER_IMPACT'].tolist() + trade_package_1['PLAYER_IMPACT'].tolist())
 
@@ -270,8 +312,8 @@ class Trade:
         delta_financial_t1  = (assets_value_t2 - assets_value_t1) * 0.1
         delta_financial_t2 = (assets_value_t1 - assets_value_t2) * 0.1
 
-        gained_potential_t1 = trade_package_2['ASSET_VALUE'].sum()
-        lost_potential_t1 = trade_package_1['ASSET_VALUE'].sum()
+        gained_potential_t1 = trade_package_2['ASSET_VALUE'].sum() + picks_t2_val
+        lost_potential_t1 = trade_package_1['ASSET_VALUE'].sum() + picks_t1_val
 
         delta_potential_t1 = gained_potential_t1 - lost_potential_t1
         delta_potential_t2 = lost_potential_t1 - gained_potential_t1
@@ -309,6 +351,6 @@ class Trade:
 
 if __name__ == "__main__":
     simulate_trade = Trade()
-    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Kel'el Ware", "Jaime Jaquez Jr.", "Nikola Jović"])
+    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Andrew Wiggins", "2027 MIA 1st (unprotected)", "2029 MIA 1st (top3 protected)"])
     print("\nTrade Result:")
     print(trade_result)

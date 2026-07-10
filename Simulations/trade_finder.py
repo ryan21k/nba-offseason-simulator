@@ -13,10 +13,10 @@ class TradeFinder:
         if trades.empty:
             return trades, pd.DataFrame(), pd.DataFrame()
         
-        best_targets = (trades.groupby(['OPPOSING_TEAM', 'PLAYER_RECEIVED']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'), BEST_TEAM_DELTA = ('TEAM_DELTA', 'max'), TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
+        best_targets = (trades.groupby(['OPPOSING_TEAM', 'ASSETS_RECEIVED']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'), BEST_TEAM_DELTA = ('TEAM_DELTA', 'max'), TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
         best_targets = best_targets.sort_values(by='AVG_TRADE_SCORE', ascending=False).reset_index(drop=True)
 
-        best_assets = (trades.groupby(['PLAYER_SENT']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'),  TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
+        best_assets = (trades.groupby(['ASSETS_SENT']).agg(AVG_TRADE_SCORE = ('TRADE_SCORE', 'mean'), AVG_TEAM_DELTA = ('TEAM_DELTA', 'mean'),  TRADE_COUNT = ('TEAM_DELTA', 'count')).reset_index())
         best_assets = best_assets.sort_values(by='AVG_TRADE_SCORE', ascending=False).reset_index(drop=True)
 
         print(f"\nBest trade targets for {team} with a minimum grade of {trade_grade}:\n")
@@ -63,14 +63,16 @@ class TradeFinder:
             opp_stars = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.35]['PLAYER_NAME'].tolist()
             opp_depth = opp_roster[(opp_roster['PLAYER_IMPACT'] >= min_impact) & (opp_roster['PLAYER_IMPACT'] < 0.35)]['PLAYER_NAME'].tolist()
 
-            opp_package = create_trade_package(opp_stars, opp_depth, 2)
+            opp_picks = [f"2027 {opp} 1st (unprotected)", f"2029 {opp} 1st ( top3 protected)"]
+
+            opp_package = create_trade_package(opp_stars, opp_depth + opp_picks, 2)
             for sending in team_package:
                 for getting in opp_package:
                     if not sending or not getting:
                         continue
                     
-                    if len(sending) != len(getting):
-                        continue
+                    # if len(sending) != len(getting):
+                    #     continue
                     checked_trades += 1
                     outcome = self.trade_simulator.perform_trade(team, opp, sending, getting, roster1 = roster, roster2 = opp_roster, silent = True)
 
@@ -86,8 +88,8 @@ class TradeFinder:
                         potential_trades.append({
                             'TEAM': team,
                             'OPPOSING_TEAM': opp,
-                            'PLAYER_SENT': " + ".join(sending),
-                            'PLAYER_RECEIVED': " + ".join(getting),
+                            'ASSETS_SENT': " + ".join(sending),
+                            'ASSETS_RECEIVED': " + ".join(getting),
                             'TEAM_DELTA': delta_team,
                             'STRENGTH_DELTA': outcome[team]['STRENGTH_DELTA'],
                             'FINANCIAL_DELTA': outcome[team]['FINANCIAL_DELTA'],
@@ -106,7 +108,7 @@ class TradeFinder:
             trades = trades.sort_values(by='TRADE_SCORE', ascending=False).reset_index(drop=True)
             print(f"\nCalculated {len(trades)} potential trades from {checked_trades} checked trades for {team} with a minimum grade of {trade_grade}.")
             print(f"Top 25 potential trades for {team} with a minimum grade of {trade_grade}:\n")
-            print(trades[['OPPOSING_TEAM', 'PLAYER_SENT', 'PLAYER_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'ROSTER_FIT_DELTA', 'TRADE_SCORE']].head(25))
+            print(trades[['OPPOSING_TEAM', 'ASSETS_SENT', 'ASSETS_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'ROSTER_FIT_DELTA', 'TRADE_SCORE']].head(25))
         else:
             print(f"\nNo potential trades found for {team} with a minimum grade of {trade_grade}.")
         
@@ -116,17 +118,17 @@ class TradeFinder:
         trades.to_csv(output_path, index=False)
         print(f"\nSaved potential trades to {output_path}.")
 
-# if __name__ == "__main__":
-#     trade_finder = TradeFinder()
-#     team, trade_grade = "MIL", "C"
-#     min_impact = 0.3
-#     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
+if __name__ == "__main__":
+    trade_finder = TradeFinder()
+    team, trade_grade = "MIL", "C"
+    min_impact = 0.3
+    calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 
-#     if not calculated.empty:
-#         output_path = (
-#             Path(__file__).resolve().parent.parent
-#             / "Data"
-#             / "Processed Data"
-#             / f"potential_trades_{team}_{trade_grade}.csv"
-#         )
-#         trade_finder.save_to_csv(calculated, output_path)
+    if not calculated.empty:
+        output_path = (
+            Path(__file__).resolve().parent.parent
+            / "Data"
+            / "Processed Data"
+            / f"potential_trades_{team}_{trade_grade}.csv"
+        )
+        trade_finder.save_to_csv(calculated, output_path)
