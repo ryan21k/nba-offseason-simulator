@@ -41,22 +41,37 @@ class TradeFinder:
         acceptable_grades = grades.index(trade_grade)
         checked_trades = 0
 
-        def create_trade_package(stars, depth, n):
+        def create_trade_package(stars, depth, team_abbreviation, is_specified = True):
             trade_packages = []
-            tradeable = stars + depth
+            players = stars + depth
             
-            for i in range(1, n + 1):
-                for combination in itertools.combinations(tradeable, i):
-                    num_stars = 0
-                    for j in combination:
-                        if j in stars:
-                            num_stars += 1
-                    if num_stars > 1:
-                        continue
-                    trade_packages.append(list(combination))
-            return trade_packages
+            for player in players:
+                trade_packages.append([player])
+            
+            for combination in itertools.combinations(players, 2):
+                if combination[0] in stars and combination[1] in stars:
+                    continue
+                trade_packages.append(list(combination))
+            
+            draft_packages = []
+            picks = [f"2027 {team_abbreviation} 1st (unprotected)", f"2029 {team_abbreviation} 1st (top3 protected)"]
 
-        team_package = create_trade_package(star_players, roster_depth, 2)
+            for package in trade_packages:
+                draft_packages.append(package)
+                depth_present = False
+
+                for player in package:
+                    if player in depth:
+                        depth_present = True
+                        break
+                
+                if depth_present and is_specified:
+                    draft_packages.append(package + [picks[0]])
+                    draft_packages.append(package + [picks[1]])
+                    draft_packages.append(package + picks)
+            return draft_packages
+
+        team_package = create_trade_package(star_players, roster_depth, team, is_specified = True)
 
         for opp in rest_of_league:
             opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp].copy()
@@ -65,14 +80,23 @@ class TradeFinder:
 
             opp_picks = [f"2027 {opp} 1st (unprotected)", f"2029 {opp} 1st ( top3 protected)"]
 
-            opp_package = create_trade_package(opp_stars, opp_depth + opp_picks, 2)
+            opp_package = create_trade_package(opp_stars, opp_depth, opp, is_specified = False)
             for sending in team_package:
                 for getting in opp_package:
                     if not sending or not getting:
                         continue
                     
-                    # if len(sending) != len(getting):
-                    #     continue
+                    if len(sending) > 4 or len(getting) > 4:
+                        continue
+
+                    duplicate = False
+                    for player in sending:
+                        if player in getting:
+                            duplicate = True
+                            break
+                    if duplicate:
+                        continue
+
                     checked_trades += 1
                     outcome = self.trade_simulator.perform_trade(team, opp, sending, getting, roster1 = roster, roster2 = opp_roster, silent = True)
 
@@ -118,17 +142,17 @@ class TradeFinder:
         trades.to_csv(output_path, index=False)
         print(f"\nSaved potential trades to {output_path}.")
 
-if __name__ == "__main__":
-    trade_finder = TradeFinder()
-    team, trade_grade = "MIL", "C"
-    min_impact = 0.3
-    calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
+# if __name__ == "__main__":
+#     trade_finder = TradeFinder()
+#     team, trade_grade = "MIL", "C"
+#     min_impact = 0.3
+#     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 
-    if not calculated.empty:
-        output_path = (
-            Path(__file__).resolve().parent.parent
-            / "Data"
-            / "Processed Data"
-            / f"potential_trades_{team}_{trade_grade}.csv"
-        )
-        trade_finder.save_to_csv(calculated, output_path)
+#     if not calculated.empty:
+#         output_path = (
+#             Path(__file__).resolve().parent.parent
+#             / "Data"
+#             / "Processed Data"
+#             / f"potential_trades_{team}_{trade_grade}.csv"
+#         )
+#         trade_finder.save_to_csv(calculated, output_path)
