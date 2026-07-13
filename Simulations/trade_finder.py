@@ -31,17 +31,17 @@ class TradeFinder:
         print(f"\nFinding optimal trades for {team} with a minimum grade of {trade_grade}...")
         roster = self.current[self.current['TEAM_ABBREVIATION'] == team].copy()
         
-        star_players = roster[roster['PLAYER_IMPACT'] >= 0.35]['PLAYER_NAME'].tolist()
-        roster_depth = roster[(roster['PLAYER_IMPACT'] >= min_impact) & (roster['PLAYER_IMPACT'] < 0.35)]['PLAYER_NAME'].tolist()
+        star_players = roster[roster['PLAYER_IMPACT'] >= 0.4]['PLAYER_NAME'].tolist()
+        roster_depth = roster[(roster['PLAYER_IMPACT'] >= min_impact) & (roster['PLAYER_IMPACT'] < 0.4)]['PLAYER_NAME'].tolist()
 
         rest_of_league = self.current[self.current['TEAM_ABBREVIATION'] != team]['TEAM_ABBREVIATION'].unique().tolist()
 
         potential_trades = []
-        grades = ["F", "D-", "D", "C-", "C", "C+", "B", "A", "A+"]
+        grades = ["F", "D", "C-", "C", "C+", "B-", "B", "B+", "A", "A+"]
         acceptable_grades = grades.index(trade_grade)
         checked_trades = 0
 
-        def create_trade_package(stars, depth, team_abbreviation, is_specified = True):
+        def create_trade_package(stars, depth, team_abbreviation):
             trade_packages = []
             players = stars + depth
             
@@ -58,43 +58,33 @@ class TradeFinder:
 
             for package in trade_packages:
                 draft_packages.append(package)
-                depth_present = False
 
-                for player in package:
-                    if player in depth:
-                        depth_present = True
-                        break
-                
-                if depth_present and is_specified:
+                if bool(set(package) & set(stars)):
                     draft_packages.append(package + [picks[0]])
                     draft_packages.append(package + [picks[1]])
                     draft_packages.append(package + picks)
             return draft_packages
 
-        team_package = create_trade_package(star_players, roster_depth, team, is_specified = True)
+        team_package = create_trade_package(star_players, roster_depth, team)
 
         for opp in rest_of_league:
-            opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp].copy()
-            opp_stars = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.35]['PLAYER_NAME'].tolist()
-            opp_depth = opp_roster[(opp_roster['PLAYER_IMPACT'] >= min_impact) & (opp_roster['PLAYER_IMPACT'] < 0.35)]['PLAYER_NAME'].tolist()
+            opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp]
+            opp_stars = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.4]['PLAYER_NAME'].tolist()
+            opp_depth = opp_roster[(opp_roster['PLAYER_IMPACT'] >= min_impact) & (opp_roster['PLAYER_IMPACT'] < 0.4)]['PLAYER_NAME'].tolist()
 
-            opp_picks = [f"2027 {opp} 1st (unprotected)", f"2029 {opp} 1st ( top3 protected)"]
-
-            opp_package = create_trade_package(opp_stars, opp_depth, opp, is_specified = False)
+            opp_package = create_trade_package(opp_stars, opp_depth, opp)
             for sending in team_package:
                 for getting in opp_package:
-                    if not sending or not getting:
-                        continue
-                    
                     if len(sending) > 4 or len(getting) > 4:
                         continue
 
-                    duplicate = False
-                    for player in sending:
-                        if player in getting:
-                            duplicate = True
-                            break
-                    if duplicate:
+                    sending_star = bool(set(sending) & set(star_players))
+                    receiving_star = bool(set(getting) & set(opp_stars))
+
+                    if not sending_star and not receiving_star:
+                        continue
+
+                    if set(sending) & set(getting):
                         continue
 
                     checked_trades += 1
@@ -105,6 +95,9 @@ class TradeFinder:
                     
                     delta_team, delta_opp = outcome[team]['DELTA'], outcome[opp]['DELTA']
                     grade_self, grade_opp = outcome[team]['GRADE'], outcome[opp]['GRADE']
+
+                    if outcome[team]['ROSTER_FIT_DELTA'] < -0.05:
+                        continue
 
                     if grades.index(grade_self) >= acceptable_grades and grades.index(grade_opp) >= acceptable_grades:
                         reasonability = abs(delta_team - delta_opp)
@@ -130,9 +123,10 @@ class TradeFinder:
 
         if not trades.empty:
             trades = trades.sort_values(by='TRADE_SCORE', ascending=False).reset_index(drop=True)
+            blockbuster_trades = trades[(trades['TEAM_DELTA'].abs() >= 0.15)].reset_index(drop = True)
             print(f"\nCalculated {len(trades)} potential trades from {checked_trades} checked trades for {team} with a minimum grade of {trade_grade}.")
             print(f"Top 25 potential trades for {team} with a minimum grade of {trade_grade}:\n")
-            print(trades[['OPPOSING_TEAM', 'ASSETS_SENT', 'ASSETS_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'ROSTER_FIT_DELTA', 'TRADE_SCORE']].head(25))
+            print(blockbuster_trades[['OPPOSING_TEAM', 'ASSETS_SENT', 'ASSETS_RECEIVED', 'TEAM_GRADE', 'OPPOSING_TEAM_GRADE', 'TEAM_DELTA', 'STRENGTH_DELTA', 'FINANCIAL_DELTA', 'POTENTIAL_DELTA', 'ROSTER_FIT_DELTA', 'TRADE_SCORE']].head(25))
         else:
             print(f"\nNo potential trades found for {team} with a minimum grade of {trade_grade}.")
         
@@ -142,17 +136,17 @@ class TradeFinder:
         trades.to_csv(output_path, index=False)
         print(f"\nSaved potential trades to {output_path}.")
 
-# if __name__ == "__main__":
-#     trade_finder = TradeFinder()
-#     team, trade_grade = "MIL", "C"
-#     min_impact = 0.3
-#     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
+if __name__ == "__main__":
+    trade_finder = TradeFinder()
+    team, trade_grade = "MIL", "B+"
+    min_impact = 0.3
+    calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 
-#     if not calculated.empty:
-#         output_path = (
-#             Path(__file__).resolve().parent.parent
-#             / "Data"
-#             / "Processed Data"
-#             / f"potential_trades_{team}_{trade_grade}.csv"
-#         )
-#         trade_finder.save_to_csv(calculated, output_path)
+    if not calculated.empty:
+        output_path = (
+            Path(__file__).resolve().parent.parent
+            / "Data"
+            / "Processed Data"
+            / f"potential_trades_{team}_{trade_grade}.csv"
+        )
+        trade_finder.save_to_csv(calculated, output_path)
