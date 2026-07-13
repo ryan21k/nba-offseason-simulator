@@ -220,28 +220,65 @@ class Trade:
                 score += delta * (1.0 + (1.0 - need_weight))
         return score * 0.1
     
-    def grade(self, delta):
-        match True:
-            case _ if delta >= 0.05:
-                return "A+"
-            case _ if delta >= 0.03:
-                return "A"
-            case _ if delta >= 0.015:
-                return "B"
-            case _ if delta >= 0.005:
-                return "C+"
-            case _ if delta >= -0.005:
-                return "C"
-            case _ if delta >= -0.015:
-                return "C-"
-            case _ if delta >= -0.03:
-                return "D"
-            case _ if delta >= -0.05:
-                return "D-"
-            case _:
-                return "F"
+    def grade(self, delta, goal):
+        if goal == "CONTENDER":
+            match True:
+                case _ if delta >= 0.05:
+                    return "A+"
+                case _ if delta >= 0.02:
+                    return "A"
+                case _ if delta >= -0.02:
+                    return "B+"
+                case _ if delta >= -0.08:
+                    return "B"
+                case _ if delta >= -0.15:
+                    return "B-"
+                case _ if delta >= -0.22:
+                    return "C+"
+                case _ if delta >= -0.3:
+                    return "C"
+                case _ if delta >= -0.4:
+                    return "D"
+                case _:
+                    return "F"
+        elif goal == "REBUILD":
+            match True:
+                case _ if delta >= 0.4:
+                    return "A+"
+                case _ if delta >= 0.25:
+                    return "A"
+                case _ if delta >= 0.125:
+                    return "B"
+                case _ if delta >= 0.04:
+                    return "C+"
+                case _ if delta >= -0.02:
+                    return "C"
+                case _ if delta >= -0.08:
+                    return "C-"
+                case _ if delta >= -0.15:
+                    return "D"
+                case _:
+                    return "F"
+        else:
+            match True:
+                case _ if delta >= 0.05:
+                    return "A+"
+                case _ if delta >= 0.03:
+                    return "A"
+                case _ if delta >= 0.015:
+                    return "B"
+                case _ if delta >= 0.005:
+                    return "C+"
+                case _ if delta >= -0.005:
+                    return "C"
+                case _ if delta >= -0.015:
+                    return "C-"
+                case _ if delta >= -0.03:
+                    return "D"
+                case _:
+                    return "F"
     
-    def value_assets(self, team_abbreviation, assets, strength):
+    def value_assets(self, team, assets, strength):
         players = []
         pick_val_sum = 0.0
 
@@ -321,11 +358,45 @@ class Trade:
         fit_score_t1 = self.calculate_roster_fit(team1, trade_package_2, trade_package_1)
         fit_score_t2 = self.calculate_roster_fit(team2, trade_package_1, trade_package_2)
 
-        delta_team1, delta_team2 = (0.5 * delta_strength_t1) + (0.2 * delta_financial_t1) + (0.2 * delta_potential_t1) + (0.1 * fit_score_t1), (0.5 * delta_strength_t2) + (0.2 * delta_financial_t2) + (0.2 * delta_potential_t2) + (0.1 * fit_score_t2)
+        t1_trading_star, t2_trading_star = False, False
+        for impact in trade_package_1['PLAYER_IMPACT'].tolist():
+            if impact >= 0.4:
+                t1_trading_star = True
+                break
+        
+        for impact in trade_package_2['PLAYER_IMPACT'].tolist():
+            if impact >= 0.4:
+                t2_trading_star = True
+                break
+
+        if team1_strength >= 0.75 and not t1_trading_star:
+            t1_win_now_score, t1_future_score = 1.3, 0.7
+            team1_goal = "CONTENDER"
+        elif team1_strength <= 0.45 or t1_trading_star:
+            t1_win_now_score, t1_future_score = 0.4, 1.75
+            team1_goal = "REBUILD"
+        else:
+            t1_win_now_score, t1_future_score = 1, 1
+            team1_goal = "MAINTAIN"
+
+        if team2_strength >= 0.75 and not t2_trading_star:
+            t2_win_now_score, t2_future_score = 1.3, 0.7
+            team2_goal = "CONTENDER"
+        elif team2_strength <= 0.45 or t2_trading_star:
+            t2_win_now_score, t2_future_score = 0.4, 1.75
+            team2_goal = "REBUILD"
+        else:
+            t2_win_now_score, t2_future_score = 1, 1
+            team2_goal = "MAINTAIN"
+
+        adj_str_t1, adj_str_t2 = delta_strength_t1 * t1_win_now_score, delta_strength_t2 * t2_win_now_score
+        adj_pot_t1, adj_pot_t2 = delta_potential_t1 * t1_future_score, delta_potential_t2 * t2_future_score
+
+        delta_team1, delta_team2 = (0.5 * adj_str_t1) + (0.2 * delta_financial_t1) + (0.2 * adj_pot_t1) + (0.1 * fit_score_t1), (0.5 * adj_str_t2) + (0.2 * delta_financial_t2) + (0.2 * adj_pot_t2) + (0.1 * fit_score_t2)
 
         return {
-            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'ROSTER_FIT_DELTA': float(fit_score_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1)},
-            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'POTENTIAL_DELTA': float(delta_potential_t2), 'ROSTER_FIT_DELTA': float(fit_score_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2)}
+            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'ROSTER_FIT_DELTA': float(fit_score_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1, team1_goal)},
+            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'POTENTIAL_DELTA': float(delta_potential_t2), 'ROSTER_FIT_DELTA': float(fit_score_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2, team2_goal)}
         }
 
     def perform_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
