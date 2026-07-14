@@ -96,12 +96,14 @@ class Trade:
     
     def load_player_potentials(self):
         try:
-            potentials = pd.read_csv(player_potentials)[['PLAYER_NAME', 'ASSET_VALUE']]
+            potentials = pd.read_csv(player_potentials)[['PLAYER_NAME', 'ASSET_VALUE', 'YEARS_REMAINING_ON_CONTRACT']]
             self.current = pd.merge(self.current, potentials, on='PLAYER_NAME', how='left')
             self.current['ASSET_VALUE'] = self.current['ASSET_VALUE'].fillna(0.0)
+            self.current['YEARS_REMAINING_ON_CONTRACT'] = self.current['YEARS_REMAINING_ON_CONTRACT'].fillna(2.0)
         except Exception as error:
             print(f"Couldn't load player potential values ({error}). Setting to 0.")
             self.current['ASSET_VALUE'] = 0.0
+            self.current['YEARS_REMAINING_ON_CONTRACT'] = 2.0
     
     def load_team_needs(self):
         try:
@@ -406,11 +408,42 @@ class Trade:
         else:
             t2_win_now_score, t2_future_score = 1, 1
             team2_goal = "MAINTAIN"
+        
+        team1_contract_years, team2_contract_years = trade_package_1['YEARS_REMAINING_ON_CONTRACT'].tolist(), trade_package_2['YEARS_REMAINING_ON_CONTRACT'].tolist()
+        t1_receiving_expired_contracts, t2_receiving_expired_contracts = 0, 0
+        t1_receiving_stable_contracts, t2_receiving_stable_contracts = 0, 0
+        t1_contract_bonus, t2_contract_bonus = 0.0, 0.0
+
+        for year in team2_contract_years:
+            if year <= 1:
+                t1_receiving_expired_contracts += 1
+            elif year >= 2:
+                t1_receiving_stable_contracts += 1
+        
+        for year in team1_contract_years:
+            if year <= 1:
+                t2_receiving_expired_contracts += 1
+            elif year >= 2:
+                t2_receiving_stable_contracts += 1
+        
+        if team1_goal == "CONTENDER":
+            t1_contract_bonus += (t1_receiving_stable_contracts * 0.015)
+            t1_contract_bonus -= (t1_receiving_expired_contracts * 0.005)
+        elif team1_goal == "REBUILD":
+            t1_contract_bonus += (t1_receiving_expired_contracts * 0.025)
+            t1_contract_bonus -= (t1_receiving_stable_contracts * 0.015)
+
+        if team2_goal == "CONTENDER":
+            t2_contract_bonus += (t2_receiving_stable_contracts * 0.015)
+            t2_contract_bonus -= (t2_receiving_expired_contracts * 0.005)
+        elif team2_goal == "REBUILD":
+            t2_contract_bonus += (t2_receiving_expired_contracts * 0.025)
+            t2_contract_bonus -= (t2_receiving_stable_contracts * 0.015)
 
         adj_str_t1, adj_str_t2 = delta_strength_t1 * t1_win_now_score, delta_strength_t2 * t2_win_now_score
         adj_pot_t1, adj_pot_t2 = delta_potential_t1 * t1_future_score, delta_potential_t2 * t2_future_score
 
-        delta_team1, delta_team2 = (0.5 * adj_str_t1) + (0.2 * delta_financial_t1) + (0.2 * adj_pot_t1) + (0.1 * fit_score_t1), (0.5 * adj_str_t2) + (0.2 * delta_financial_t2) + (0.2 * adj_pot_t2) + (0.1 * fit_score_t2)
+        delta_team1, delta_team2 = (0.5 * adj_str_t1) + (0.2 * delta_financial_t1) + (0.2 * adj_pot_t1) + (0.1 * fit_score_t1) + t1_contract_bonus, (0.5 * adj_str_t2) + (0.2 * delta_financial_t2) + (0.2 * adj_pot_t2) + (0.1 * fit_score_t2) + t2_contract_bonus
 
         return {
             team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'ROSTER_FIT_DELTA': float(fit_score_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1, team1_goal)},
