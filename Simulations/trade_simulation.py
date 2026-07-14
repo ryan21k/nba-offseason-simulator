@@ -369,11 +369,26 @@ class Trade:
                 t2_trading_star = True
                 break
 
+        t1_trading_fp, t2_trading_fp = False, False
+
+        for impact in trade_package_1['PLAYER_IMPACT'].tolist():
+            if impact >= 0.43:
+                t1_trading_fp = True
+                break
+        
+        for impact in trade_package_2['PLAYER_IMPACT'].tolist():
+            if impact >= 0.43:
+                t2_trading_fp = True
+                break
+
         if team1_strength >= 0.75 and not t1_trading_star:
             t1_win_now_score, t1_future_score = 1.3, 0.7
             team1_goal = "CONTENDER"
         elif team1_strength <= 0.45 or t1_trading_star:
-            t1_win_now_score, t1_future_score = 0.4, 1.75
+            if t1_trading_fp:
+                t1_win_now_score, t1_future_score = 0.85, 1.25
+            else:
+                t1_win_now_score, t1_future_score = 0.4, 1.75
             team1_goal = "REBUILD"
         else:
             t1_win_now_score, t1_future_score = 1, 1
@@ -383,7 +398,10 @@ class Trade:
             t2_win_now_score, t2_future_score = 1.3, 0.7
             team2_goal = "CONTENDER"
         elif team2_strength <= 0.45 or t2_trading_star:
-            t2_win_now_score, t2_future_score = 0.4, 1.75
+            if t2_trading_fp:
+                t2_win_now_score, t2_future_score = 0.85, 1.25
+            else:
+                t2_win_now_score, t2_future_score = 0.4, 1.75
             team2_goal = "REBUILD"
         else:
             t2_win_now_score, t2_future_score = 1, 1
@@ -420,8 +438,8 @@ class Trade:
 
         return trade_eval
 
-# if __name__ == "__main__":
-#     simulate_trade = Trade()
-#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Andrew Wiggins", "2027 MIA 1st (unprotected)", "2029 MIA 1st (top3 protected)"])
-#     print("\nTrade Result:")
-#     print(trade_result)
+if __name__ == "__main__":
+    simulate_trade = Trade()
+    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Andrew Wiggins", "2027 MIA 1st (unprotected)", "2029 MIA 1st (top3 protected)"])
+    print("\nTrade Result:")
+    print(trade_result)

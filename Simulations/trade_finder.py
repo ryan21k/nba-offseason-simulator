@@ -60,17 +60,18 @@ class TradeFinder:
                 if combination[0] in stars and combination[1] in stars:
                     continue
                 trade_packages.append(list(combination))
+
+            for combination in itertools.combinations(depth, 3):
+                trade_packages.append(list(combination))
             
             draft_packages = []
             picks = [f"2027 {team_abbreviation} 1st (unprotected)", f"2029 {team_abbreviation} 1st (top3 protected)"]
 
             for package in trade_packages:
                 draft_packages.append(package)
-
-                if bool(set(package) & set(stars)):
-                    draft_packages.append(package + [picks[0]])
-                    draft_packages.append(package + [picks[1]])
-                    draft_packages.append(package + picks)
+                draft_packages.append(package + [picks[0]])
+                draft_packages.append(package + [picks[1]])
+                draft_packages.append(package + picks)
             return draft_packages
 
         team_package = create_trade_package(star_players, roster_depth, team)
@@ -78,6 +79,15 @@ class TradeFinder:
         for opp in rest_of_league:
             opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp]
             opp_stars = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.4]['PLAYER_NAME'].tolist()
+            opp_franchise_players = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.43]['PLAYER_NAME'].tolist()
+
+            filtered_stars = []
+
+            for player in opp_stars:
+                if player not in opp_franchise_players:
+                    filtered_stars.append(player)
+            opp_stars = filtered_stars
+
             opp_depth = opp_roster[(opp_roster['PLAYER_IMPACT'] >= min_impact) & (opp_roster['PLAYER_IMPACT'] < 0.4)]['PLAYER_NAME'].tolist()
 
             opp_package = create_trade_package(opp_stars, opp_depth, opp)
@@ -168,7 +178,7 @@ class TradeFinder:
 
 if __name__ == "__main__":
     trade_finder = TradeFinder()
-    team, trade_grade = "MIL", "B+"
+    team, trade_grade = "MIL", "B"
     min_impact = 0.3
     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 
