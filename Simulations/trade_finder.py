@@ -36,6 +36,14 @@ class TradeFinder:
 
         rest_of_league = self.current[self.current['TEAM_ABBREVIATION'] != team]['TEAM_ABBREVIATION'].unique().tolist()
 
+        salary_search, impact_search = {}, {}
+
+        for index, row in self.current.iterrows():
+            player = row['PLAYER_NAME']
+            salary, impact = row['CLEAN_SALARY'], row['PLAYER_IMPACT']
+            salary_search[player] = salary
+            impact_search[player] = impact
+
         potential_trades = []
         grades = ["F", "D", "C-", "C", "C+", "B-", "B", "B+", "A", "A+"]
         acceptable_grades = grades.index(trade_grade)
@@ -85,6 +93,28 @@ class TradeFinder:
                         continue
 
                     if set(sending) & set(getting):
+                        continue
+
+                    outgoing_salary, incoming_salary = 0, 0
+                    for player in sending:
+                        outgoing_salary += salary_search.get(player, 0)
+                    
+                    for player in getting:
+                        incoming_salary += salary_search.get(player, 0)
+                    
+                    if abs(outgoing_salary - incoming_salary) > 5000000:
+                        smaller = min(outgoing_salary, incoming_salary) + 1
+                        if (max(outgoing_salary, incoming_salary) / smaller) > 1.25:
+                            continue
+                    
+                    outgoing_impact, incoming_impact = 0, 0
+                    for player in sending:
+                        outgoing_impact += impact_search.get(player, 0)
+                    
+                    for player in getting:
+                        incoming_impact += impact_search.get(player, 0)
+                    
+                    if sending_star and (incoming_impact < outgoing_impact * 0.7):
                         continue
 
                     checked_trades += 1
