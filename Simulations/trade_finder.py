@@ -79,14 +79,6 @@ class TradeFinder:
         for opp in rest_of_league:
             opp_roster = self.current[self.current['TEAM_ABBREVIATION'] == opp]
             opp_stars = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.4]['PLAYER_NAME'].tolist()
-            opp_franchise_players = opp_roster[opp_roster['PLAYER_IMPACT'] >= 0.43]['PLAYER_NAME'].tolist()
-
-            filtered_stars = []
-
-            for player in opp_stars:
-                if player not in opp_franchise_players:
-                    filtered_stars.append(player)
-            opp_stars = filtered_stars
 
             opp_depth = opp_roster[(opp_roster['PLAYER_IMPACT'] >= min_impact) & (opp_roster['PLAYER_IMPACT'] < 0.4)]['PLAYER_NAME'].tolist()
 
@@ -178,7 +170,7 @@ class TradeFinder:
 
 if __name__ == "__main__":
     trade_finder = TradeFinder()
-    team, trade_grade = "MIL", "B"
+    team, trade_grade = "OKC", "B"
     min_impact = 0.3
     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 

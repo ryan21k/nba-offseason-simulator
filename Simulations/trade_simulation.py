@@ -334,6 +334,21 @@ class Trade:
                 print("Error: One of the teams does not have all the specified player(s).")
             return None
         
+        t1_players_sent_count, t2_players_sent_count = len(trade_package_1), len(trade_package_2)
+
+        t1_new_roster_size = len(roster1) - t1_players_sent_count + t2_players_sent_count
+        t2_new_roster_size = len(roster2) - t2_players_sent_count + t1_players_sent_count
+
+        if t1_new_roster_size > 15:
+            if not silent:
+                print(f"Trade cannot be processed as {team1} will exceed max roster limit of 15 players. Projected roster size would be {t1_new_roster_size} players.")
+            return None
+        
+        if t2_new_roster_size > 15:
+            if not silent:
+                print(f"Trade cannot be processed as {team2} will exceed max roster limit of 15 players. Projected roster size would be {t2_new_roster_size} players.")
+            return None
+
         team1_payroll, team2_payroll = roster1['CLEAN_SALARY'].sum(), roster2['CLEAN_SALARY'].sum()
         team1_apron, team2_apron = self.get_apron(team1_payroll), self.get_apron(team2_payroll)
         team1_outgoing_payroll, team2_outgoing_payroll = trade_package_1['CLEAN_SALARY'].sum(), trade_package_2['CLEAN_SALARY'].sum()
@@ -421,8 +436,8 @@ class Trade:
 
         return trade_eval
 
-if __name__ == "__main__":
-    simulate_trade = Trade()
-    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Giannis Antetokounmpo"], ["Tyler Herro", "Andrew Wiggins", "2027 MIA 1st (unprotected)", "2029 MIA 1st (top3 protected)"])
-    print("\nTrade Result:")
-    print(trade_result)
+# if __name__ == "__main__":
+#     simulate_trade = Trade()
+#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Ryan Rollins"], ["Jaime Jaquez Jr."])
+#     print("\nTrade Result:")
+#     print(trade_result)
