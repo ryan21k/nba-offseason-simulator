@@ -340,13 +340,56 @@ class Trade:
         t2_new_roster_size = len(roster2) - t2_players_sent_count + t1_players_sent_count
 
         if t1_new_roster_size > 15:
-            if not silent:
-                print(f"Trade cannot be processed as {team1} will exceed max roster limit of 15 players. Projected roster size would be {t1_new_roster_size} players.")
-            return None
+            roster_spots_leaving = t1_new_roster_size - 15
+            remaining = roster1[~roster1['PLAYER_NAME'].isin(players_1)].sort_values(by = 'PLAYER_IMPACT')
+
+            if len(remaining) >= roster_spots_leaving:
+                players_gone = remaining['PLAYER_NAME'].head(roster_spots_leaving).tolist()
+                if not silent:
+                    print(f"To make room for this trade, {team1} will have to cut {', '.join(players_gone)}")
+                roster1 = roster1[~roster1['PLAYER_NAME'].isin(players_gone)]
+            else:
+                return None
         
         if t2_new_roster_size > 15:
+            roster_spots_leaving = t2_new_roster_size - 15
+            remaining = roster2[~roster2['PLAYER_NAME'].isin(players_2)].sort_values(by = 'PLAYER_IMPACT')
+
+            if len(remaining) >= roster_spots_leaving:
+                players_gone = remaining['PLAYER_NAME'].head(roster_spots_leaving).tolist()
+                if not silent:
+                    print(f"To make room for this trade, {team2} will have to cut {', '.join(players_gone)}")
+                roster2 = roster2[~roster2['PLAYER_NAME'].isin(players_gone)]
+            else:
+                return None
+
+        def check_stepien_rule(team_abbreviation, assets):
+            first_round_pick_years = []
+
+            for asset in assets:
+                if "1st" in asset and team_abbreviation in asset:
+                    words = asset.split()
+                    for word in words:
+                        if word.isdigit() and len(word) == 4:
+                            first_round_pick_years.append(int(word))
+                            break
+            
+            first_round_pick_years.sort()
+            for year in range(len(first_round_pick_years) - 1):
+                if first_round_pick_years[year + 1] - first_round_pick_years[year] == 1:
+                    return True, first_round_pick_years[year], first_round_pick_years[year + 1]
+            return False, None, None
+        
+        team1_violation, t1_year1, t1_year2 = check_stepien_rule(team1, assets_1)
+        if team1_violation:
             if not silent:
-                print(f"Trade cannot be processed as {team2} will exceed max roster limit of 15 players. Projected roster size would be {t2_new_roster_size} players.")
+                print(f"Trade can't be processed as {team1} violates the Stepien Rule by trading consecutive 1st round picks for the years {t1_year1} and {t1_year2}.")
+            return None
+        
+        team2_violation, t2_year1, t2_year2 = check_stepien_rule(team2, assets_2)
+        if team2_violation:
+            if not silent:
+                print(f"Trade can't be processed as {team2} violates the Stepien Rule by trading consecutive 1st round picks for the years {t2_year1} and {t2_year2}.")
             return None
 
         team1_payroll, team2_payroll = roster1['CLEAN_SALARY'].sum(), roster2['CLEAN_SALARY'].sum()
@@ -436,8 +479,8 @@ class Trade:
 
         return trade_eval
 
-# if __name__ == "__main__":
-#     simulate_trade = Trade()
-#     trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Ryan Rollins"], ["Jaime Jaquez Jr."])
-#     print("\nTrade Result:")
-#     print(trade_result)
+if __name__ == "__main__":
+    simulate_trade = Trade()
+    trade_result = simulate_trade.perform_trade("MIL", "MIA", ["Ryan Rollins"], ["Jaime Jaquez Jr."])
+    print("\nTrade Result:")
+    print(trade_result)

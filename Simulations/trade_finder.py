@@ -71,7 +71,24 @@ class TradeFinder:
                 draft_packages.append(package)
                 draft_packages.append(package + [picks[0]])
                 draft_packages.append(package + [picks[1]])
-                draft_packages.append(package + picks)
+
+                years = []
+                for pick in picks:
+                    if "1st" in pick:
+                        words = pick.split()
+                        year = words[0]
+                        years.append(int(year))
+                years.sort()
+
+                back_to_back = False
+                for year in range(len(years) - 1):
+                    if years[year + 1] - years[year] == 1:
+                        back_to_back = True
+                        break
+                
+                if not back_to_back:
+                    draft_packages.append(package + picks)
+
             return draft_packages
 
         team_package = create_trade_package(star_players, roster_depth, team)
@@ -86,6 +103,12 @@ class TradeFinder:
             for sending in team_package:
                 for getting in opp_package:
                     if len(sending) > 4 or len(getting) > 4:
+                        continue
+
+                    projected_size_t1 = len(roster) - len(sending) + len(getting)
+                    projected_size_t2 = len(roster) - len(getting) + len(sending)
+
+                    if projected_size_t1 > 15 or projected_size_t2 > 15:
                         continue
 
                     sending_star = bool(set(sending) & set(star_players))
@@ -170,7 +193,7 @@ class TradeFinder:
 
 if __name__ == "__main__":
     trade_finder = TradeFinder()
-    team, trade_grade = "OKC", "B"
+    team, trade_grade = "MIL", "B"
     min_impact = 0.3
     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 
