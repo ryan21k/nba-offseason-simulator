@@ -4,12 +4,7 @@ import sys, importlib.util
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-module_path = (
-    ROOT_DIR 
-    / "Models"
-    / "Draft Pick Valuation"
-    / "draft_pick_valuation.py"
-)
+module_path = ROOT_DIR / "Models" / "Draft Pick Valuation" / "draft_pick_valuation.py"
 
 spec = importlib.util.spec_from_file_location("draft_pick_valuation", module_path)
 draft_pick_module = importlib.util.module_from_spec(spec)
@@ -18,40 +13,11 @@ spec.loader.exec_module(draft_pick_module)
 
 DraftPickValuation = draft_pick_module.DraftPick
 
-player_impacts = (
-    ROOT_DIR
-    / "Data"
-    / "Processed Data"
-    / "player_impact_v2.csv"
-)
-
-salaries = (
-    ROOT_DIR
-    / "Data"
-    / "Processed Data"
-    / "player_salary_data.csv"
-)
-
-contract_values = (
-    ROOT_DIR
-    / "Data"
-    / "Processed Data"
-    / "contract_value.csv"
-)
-
-player_potentials = (
-    ROOT_DIR
-    / "Data"
-    / "Processed Data"
-    / "player_potential_evaluation.csv"
-)
-
-team_needs = (
-    ROOT_DIR
-    / "Data"
-    / "Processed Data"
-    / "team_needs.csv"
-)
+player_impacts = ROOT_DIR / "Data" / "Processed Data" / "player_impact_v2.csv"
+salaries = ROOT_DIR / "Data" / "Processed Data" / "player_salary_data.csv"
+contract_values = ROOT_DIR / "Data" / "Processed Data" / "contract_value.csv"
+player_potentials = ROOT_DIR / "Data" / "Processed Data" / "player_potential_evaluation.csv"
+team_needs = ROOT_DIR / "Data" / "Processed Data" / "team_needs.csv"
 
 class Trade:
     SEASON_SALARY_CAP = 154647000
@@ -303,6 +269,46 @@ class Trade:
                 players.append(asset)
         return players, pick_val_sum
 
+    def determine_team_goal(self, strength, impacts):
+        trading_star, trading_franchise_player = False, False
+
+        for impact in impacts:
+            if impact >= 0.4:
+                trading_star = True
+            if impact >= 0.43:
+                trading_franchise_player = True
+        
+        if strength >= 0.75 and not trading_star:
+            return "CONTENDER", 1.3, 0.7
+        elif strength <= 0.45 or trading_star:
+            if trading_franchise_player:
+                win_now_score, future_score = 0.85, 1.25
+            else:
+                win_now_score, future_score = 0.4, 1.75
+            return "REBUILD", win_now_score, future_score
+        else:
+            return "MAINTAIN", 1.0, 1.0
+    
+    def calc_team_delta(self, goal, incoming_years, delta_strength, win_now_score, delta_potential, future_score, delta_financial, fit_score):
+        contract_bonus, receiving_expired_contaracts, receiving_stable_contracts = 0.0, 0.0, 0.0
+
+        for year in incoming_years:
+            if year <= 1:
+                receiving_expired_contaracts += 1
+            elif year >= 2:
+                receiving_stable_contracts += 1
+        
+        if goal == "CONTENDER":
+            contract_bonus += (receiving_stable_contracts * 0.015) - (receiving_expired_contaracts * 0.005)
+        elif goal == "REBUILD":
+            contract_bonus += (receiving_expired_contaracts * 0.025) - (receiving_stable_contracts * 0.015)
+        
+        adjusted_strength = delta_strength * win_now_score
+        adjusted_potential = delta_potential * future_score
+
+        delta = (0.5 * adjusted_strength) + (0.2 * delta_financial) + (0.2 * adjusted_potential) + (0.1 * fit_score) + contract_bonus
+        return delta
+
     def evaluate_trade(self, team1, team2, assets_1, assets_2, roster1 = None, roster2 = None, silent = False):
         if roster1 is None:
             roster1 = self.current[self.current['TEAM_ABBREVIATION'] == team1].copy()
@@ -349,105 +355,49 @@ class Trade:
         assets_value_t1, assets_value_t2 = trade_package_1['SCALED_CONTRACT_VAL'].sum(), trade_package_2['SCALED_CONTRACT_VAL'].sum()
         
         delta_financial_t1  = (assets_value_t2 - assets_value_t1) * 0.1
-        delta_financial_t2 = (assets_value_t1 - assets_value_t2) * 0.1
+        delta_financial_t2 = -delta_financial_t1
 
         gained_potential_t1 = trade_package_2['ASSET_VALUE'].sum() + picks_t2_val
         lost_potential_t1 = trade_package_1['ASSET_VALUE'].sum() + picks_t1_val
 
         delta_potential_t1 = gained_potential_t1 - lost_potential_t1
-        delta_potential_t2 = lost_potential_t1 - gained_potential_t1
+        delta_potential_t2 = -delta_potential_t1
 
         fit_score_t1 = self.calculate_roster_fit(team1, trade_package_2, trade_package_1)
         fit_score_t2 = self.calculate_roster_fit(team2, trade_package_1, trade_package_2)
 
-        t1_trading_star, t2_trading_star = False, False
-        for impact in trade_package_1['PLAYER_IMPACT'].tolist():
-            if impact >= 0.4:
-                t1_trading_star = True
-                break
-        
-        for impact in trade_package_2['PLAYER_IMPACT'].tolist():
-            if impact >= 0.4:
-                t2_trading_star = True
-                break
+        team1_goal, t1_win_now_score, t1_future_score = self.determine_team_goal(team1_strength, trade_package_1['PLAYER_IMPACT'].tolist())
+        team2_goal, t2_win_now_score, t2_future_score = self.determine_team_goal(team2_strength, trade_package_2['PLAYER_IMPACT'].tolist())
 
-        t1_trading_fp, t2_trading_fp = False, False
+        delta_team1 = self.calc_team_delta(team1_goal, trade_package_2['YEARS_REMAINING_ON_CONTRACT'].tolist(), delta_strength_t1, t1_win_now_score, delta_potential_t1, t1_future_score, delta_financial_t1, fit_score_t1)
+        delta_team2 = self.calc_team_delta(team2_goal, trade_package_1['YEARS_REMAINING_ON_CONTRACT'].tolist(), delta_strength_t2, t2_win_now_score, delta_potential_t2, t2_future_score, delta_financial_t2, fit_score_t2)
+
+        final_grade_t1 = self.grade(delta_team1, team1_goal)
+        final_grade_t2 = self.grade(delta_team2, team2_goal)
+
+        t1_superstar, t2_superstar = False, False
 
         for impact in trade_package_1['PLAYER_IMPACT'].tolist():
             if impact >= 0.43:
-                t1_trading_fp = True
+                t1_superstar = True
                 break
         
         for impact in trade_package_2['PLAYER_IMPACT'].tolist():
             if impact >= 0.43:
-                t2_trading_fp = True
+                t2_superstar = True
                 break
-
-        if team1_strength >= 0.75 and not t1_trading_star:
-            t1_win_now_score, t1_future_score = 1.3, 0.7
-            team1_goal = "CONTENDER"
-        elif team1_strength <= 0.45 or t1_trading_star:
-            if t1_trading_fp:
-                t1_win_now_score, t1_future_score = 0.85, 1.25
-            else:
-                t1_win_now_score, t1_future_score = 0.4, 1.75
-            team1_goal = "REBUILD"
-        else:
-            t1_win_now_score, t1_future_score = 1, 1
-            team1_goal = "MAINTAIN"
-
-        if team2_strength >= 0.75 and not t2_trading_star:
-            t2_win_now_score, t2_future_score = 1.3, 0.7
-            team2_goal = "CONTENDER"
-        elif team2_strength <= 0.45 or t2_trading_star:
-            if t2_trading_fp:
-                t2_win_now_score, t2_future_score = 0.85, 1.25
-            else:
-                t2_win_now_score, t2_future_score = 0.4, 1.75
-            team2_goal = "REBUILD"
-        else:
-            t2_win_now_score, t2_future_score = 1, 1
-            team2_goal = "MAINTAIN"
         
-        team1_contract_years, team2_contract_years = trade_package_1['YEARS_REMAINING_ON_CONTRACT'].tolist(), trade_package_2['YEARS_REMAINING_ON_CONTRACT'].tolist()
-        t1_receiving_expired_contracts, t2_receiving_expired_contracts = 0, 0
-        t1_receiving_stable_contracts, t2_receiving_stable_contracts = 0, 0
-        t1_contract_bonus, t2_contract_bonus = 0.0, 0.0
-
-        for year in team2_contract_years:
-            if year <= 1:
-                t1_receiving_expired_contracts += 1
-            elif year >= 2:
-                t1_receiving_stable_contracts += 1
+        if t1_superstar and not t2_superstar:
+            if not (len(assets_2) >= 3 and gained_potential_t1 >= (lost_potential_t1 * 1.5)) and final_grade_t1 in ["A+", "A", "B+", "B", "B-", "C+", "C"]:
+                final_grade_t1 = "C-"
         
-        for year in team1_contract_years:
-            if year <= 1:
-                t2_receiving_expired_contracts += 1
-            elif year >= 2:
-                t2_receiving_stable_contracts += 1
-        
-        if team1_goal == "CONTENDER":
-            t1_contract_bonus += (t1_receiving_stable_contracts * 0.015)
-            t1_contract_bonus -= (t1_receiving_expired_contracts * 0.005)
-        elif team1_goal == "REBUILD":
-            t1_contract_bonus += (t1_receiving_expired_contracts * 0.025)
-            t1_contract_bonus -= (t1_receiving_stable_contracts * 0.015)
-
-        if team2_goal == "CONTENDER":
-            t2_contract_bonus += (t2_receiving_stable_contracts * 0.015)
-            t2_contract_bonus -= (t2_receiving_expired_contracts * 0.005)
-        elif team2_goal == "REBUILD":
-            t2_contract_bonus += (t2_receiving_expired_contracts * 0.025)
-            t2_contract_bonus -= (t2_receiving_stable_contracts * 0.015)
-
-        adj_str_t1, adj_str_t2 = delta_strength_t1 * t1_win_now_score, delta_strength_t2 * t2_win_now_score
-        adj_pot_t1, adj_pot_t2 = delta_potential_t1 * t1_future_score, delta_potential_t2 * t2_future_score
-
-        delta_team1, delta_team2 = (0.5 * adj_str_t1) + (0.2 * delta_financial_t1) + (0.2 * adj_pot_t1) + (0.1 * fit_score_t1) + t1_contract_bonus, (0.5 * adj_str_t2) + (0.2 * delta_financial_t2) + (0.2 * adj_pot_t2) + (0.1 * fit_score_t2) + t2_contract_bonus
+        if t2_superstar and not t1_superstar:
+            if not (len(assets_1) >= 3 and lost_potential_t1 >= (gained_potential_t1 * 1.5)) and final_grade_t2 in ["A+", "A", "B+", "B", "B-", "C+", "C"]:
+                final_grade_t2 = "C-"
 
         return {
-            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'ROSTER_FIT_DELTA': float(fit_score_t1), 'DELTA': float(delta_team1), 'GRADE': self.grade(delta_team1, team1_goal)},
-            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'POTENTIAL_DELTA': float(delta_potential_t2), 'ROSTER_FIT_DELTA': float(fit_score_t2), 'DELTA': float(delta_team2), 'GRADE': self.grade(delta_team2, team2_goal)}
+            team1: {'BEFORE': float(team1_strength), 'AFTER': float(team1_new_strength), 'STRENGTH_DELTA': float(delta_strength_t1), 'FINANCIAL_DELTA': float(delta_financial_t1), 'POTENTIAL_DELTA': float(delta_potential_t1), 'ROSTER_FIT_DELTA': float(fit_score_t1), 'DELTA': float(delta_team1), 'GRADE': final_grade_t1},
+            team2: {'BEFORE': float(team2_strength), 'AFTER': float(team2_new_strength), 'STRENGTH_DELTA': float(delta_strength_t2), 'FINANCIAL_DELTA': float(delta_financial_t2), 'POTENTIAL_DELTA': float(delta_potential_t2), 'ROSTER_FIT_DELTA': float(fit_score_t2), 'DELTA': float(delta_team2), 'GRADE': final_grade_t2}
         }
 
     def perform_trade(self, team1, team2, players_1, players_2, roster1 = None, roster2 = None, silent = False):
