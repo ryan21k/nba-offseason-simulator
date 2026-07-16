@@ -22,8 +22,7 @@ MISSING_PLAYERS = [
     {"PLAYER_NAME": "Domantas Sabonis", "TEAM_ABBREVIATION": "SAC", "SEASON": "2024-25"},
     {"PLAYER_NAME": "Dejounte Murray", "TEAM_ABBREVIATION": "NOP", "SEASON": "2024-25"},
     {"PLAYER_NAME": "Jeremy Sochan", "TEAM_ABBREVIATION": "NYK", "SEASON": "2024-25"},
-    {"PLAYER_NAME": "Zach Edey", "TEAM_ABBREVIATION": "MEM", "SEASON": "2024-25"},
-    {"PLAYER_NAME": "Mikel Brown Jr.", "TEAM_ABBREVIATION": "DEN", "SEASON": "2024-25"}
+    {"PLAYER_NAME": "Zach Edey", "TEAM_ABBREVIATION": "MEM", "SEASON": "2024-25"}
 ]
 
 def resolve_id(player_name):
@@ -54,17 +53,14 @@ def patch_missing():
     for player in MISSING_PLAYERS:
         name = player["PLAYER_NAME"]
         team = player["TEAM_ABBREVIATION"]
-        source_season = "2024-25"
-
-        if "SEASON" in player:
-            source_season = player["SEASON"]
+        source_season = player["SEASON"]
         
         player_already_exists = False
-
         for index, row in df.iterrows():
             if str(row["PLAYER_NAME"]).lower() == name.lower():
-                player_already_exists = True
-                break
+                if str(row["SEASON"]) == target_season:
+                    player_already_exists = True
+                    break
         
         if player_already_exists:
             continue
