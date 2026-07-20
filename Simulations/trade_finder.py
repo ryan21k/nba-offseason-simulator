@@ -193,7 +193,7 @@ class TradeFinder:
 
 if __name__ == "__main__":
     trade_finder = TradeFinder()
-    team, trade_grade = "MIL", "B"
+    team, trade_grade = "LAL", "B"
     min_impact = 0.3
     calculated, targets, assets = trade_finder.find_best_trade_targets(team, trade_grade, min_impact)
 

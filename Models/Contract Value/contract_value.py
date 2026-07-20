@@ -2,7 +2,7 @@ from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
  
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
  
 players_impact_path = (
     ROOT_DIR

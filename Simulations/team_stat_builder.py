@@ -48,4 +48,4 @@ output_path = (
 )
 
 projected_team_strengths.to_csv(output_path, index=False)
-print("\nFinished adding projected team strength scores to projected_team_strengths.csv.")
+print("\nFinished adding projected team strength scores to projected_team_strengths_v2.csv.")

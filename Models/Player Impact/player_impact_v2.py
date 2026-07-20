@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import os, time
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 player_strengths_path = (
     ROOT_DIR
     / "Data"

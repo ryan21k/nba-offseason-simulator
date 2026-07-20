@@ -39,7 +39,7 @@ class PlayerPotential:
         return self.df
 
 if __name__ == "__main__":
-    ROOT_DIR = Path(__file__).resolve().parent.parent
+    ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
     potentials = (
         ROOT_DIR
