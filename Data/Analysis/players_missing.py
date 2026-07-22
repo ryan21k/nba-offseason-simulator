@@ -20,7 +20,8 @@ MISSING_PLAYERS = [
     {"PLAYER_NAME": "Domantas Sabonis", "TEAM_ABBREVIATION": "SAC", "SEASON": "2024-25"},
     {"PLAYER_NAME": "Dejounte Murray", "TEAM_ABBREVIATION": "NOP", "SEASON": "2024-25"},
     {"PLAYER_NAME": "Jeremy Sochan", "TEAM_ABBREVIATION": "NYK", "SEASON": "2024-25"},
-    {"PLAYER_NAME": "Zach Edey", "TEAM_ABBREVIATION": "MEM", "SEASON": "2024-25"}
+    {"PLAYER_NAME": "Zach Edey", "TEAM_ABBREVIATION": "MEM", "SEASON": "2024-25"},
+    {"PLAYER_NAME": "Trae Young", "TEAM_ABBREVIATION": "WAS", "SEASON": "2024-25"}
 ]
 
 def resolve_id(player_name):
