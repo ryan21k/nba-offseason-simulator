@@ -3,19 +3,21 @@ import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-team_dataset = (
-    ROOT_DIR 
-    / "Processed Data" 
-    / "player_team_dataset.csv"
-)
-
-output_path = (
-    ROOT_DIR 
-    / "Processed Data"
-    / "player_team_dataset_2026_27.csv"
-)
-
-METADATA_COLS = ["Unnamed: 0", "PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "SEASON"]
+DATASETS = [
+    {
+        "name": "team dataset",
+        "input_path": ROOT_DIR / "Processed Data" / "player_team_dataset.csv",
+        "output_path": ROOT_DIR / "Processed Data" / "player_team_dataset_2026_27.csv",
+        "metadata_cols": ["Unnamed: 0", "PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "SEASON"],
+        "zeroes": True
+    }, {
+        "name": "team dataset",
+        "input_path": ROOT_DIR / "Processed Data" / "player_salary_data.csv",
+        "output_path": ROOT_DIR / "Processed Data" / "player_salary_data_2026_27.csv",
+        "metadata_cols": ["Unnamed: 0", "PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "SEASON"],
+        "zeroes": False
+    }
+]
 
 UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Lugentz Dort", "NEW_TEAM": "ATL"},
@@ -77,6 +79,8 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Andre Drummond", "NEW_TEAM": "NYK"},
     {"PLAYER_NAME": "Moussa Cisse", "NEW_TEAM": "NYK"},
     {"PLAYER_NAME": "Nikola Vučević", "NEW_TEAM": "ORL"},
+    {"PLAYER_NAME": "LeBron James", "NEW_TEAM": "PHI"},
+    {"PLAYER_NAME": "Kentavious Caldwell-Pope", "NEW_TEAM": "PHI"},
     {"PLAYER_NAME": "Jaylen Brown", "NEW_TEAM": "PHI"},
     {"PLAYER_NAME": "Anfernee Simons", "NEW_TEAM": "PHI"},
     {"PLAYER_NAME": "Dean Wade", "NEW_TEAM": "PHI"},
@@ -101,48 +105,62 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Cam Whitmore", "NEW_TEAM": "WAS"}
 ]
 
-teams_df = pd.read_csv(team_dataset)
-new_team_rows = []
-
-for update in UPDATED_TRADES_AND_SIGNINGS:
-    player_name = update.get("PLAYER_NAME")
-    if not player_name:
+for dataset in DATASETS:
+    input_path = dataset["input_path"]
+    if not input_path.exists():
+        print(f"Skipping {dataset["name"]} due to file not being found.")
         continue
+    df = pd.read_csv(input_path)
+    new_rows = []
+    has_season = "SEASON" in df.columns
 
-    new_team = update.get("NEW_TEAM")
-    if new_team:
-        record_exists_26 = (teams_df["PLAYER_NAME"].str.lower() == player_name.lower()) & (teams_df["SEASON"] == "2026-27")
+    for update in UPDATED_TRADES_AND_SIGNINGS:
+        player_name = update.get("PLAYER_NAME")
+        new_team = update.get("NEW_TEAM")
+        if not player_name or not new_team:
+            continue
+
+        if has_season:
+            record_exists_26 = (df["PLAYER_NAME"].str.lower() == player_name.lower()) & (df["SEASON"] == "2026-27")
+        else:
+            record_exists_26 = df["PLAYER_NAME"].str.lower() == player_name.lower()
 
         if record_exists_26.any():
-            teams_df.loc[record_exists_26, "TEAM_ABBREVIATION"] = new_team
+            df.loc[record_exists_26, "TEAM_ABBREVIATION"] = new_team
             print(f"Updated {player_name} -> {new_team} for 2026-27 season.")
         else:
-            players = teams_df[teams_df["PLAYER_NAME"].str.lower() == player_name.lower()]
+            players = df[df["PLAYER_NAME"].str.lower() == player_name.lower()]
 
             if not players.empty:
                 recent = players.iloc[-1].copy()
                 recent["SEASON"] = "2026-27"
                 recent["TEAM_ABBREVIATION"] = new_team
-                new_team_rows.append(recent)
+                new_rows.append(recent)
                 print(f"Added {player_name} -> {new_team} for 2026-27 season.")
 
-if new_team_rows:
-    new_rows = pd.DataFrame(new_team_rows)
-    teams_df = pd.concat([teams_df, new_rows], ignore_index = True)
+    if new_rows:
+        rows = pd.DataFrame(new_rows)
+        df = pd.concat([df, rows], ignore_index = True)
 
-df_2025_26 = teams_df[teams_df["SEASON"] == "2025-26"].copy()
-existing_26_27 = set(teams_df[teams_df["SEASON"] == "2026-27"]["PLAYER_NAME"].str.lower().unique())
+    if has_season:
+        df_2025_26 = df[df["SEASON"] == "2025-26"].copy()
+        existing_26_27 = set(df[df["SEASON"] == "2026-27"]["PLAYER_NAME"].str.lower().unique())
 
-leftover_players = ~df_2025_26["PLAYER_NAME"].str.lower().isin(existing_26_27)
-leftover_rows = df_2025_26[leftover_players].copy()
+        leftover_players = ~df_2025_26["PLAYER_NAME"].str.lower().isin(existing_26_27)
+        leftover_rows = df_2025_26[leftover_players].copy()
 
-leftover_rows["SEASON"] = "2026-27"
-teams_df = pd.concat([teams_df, leftover_rows], ignore_index = True)
+        leftover_rows["SEASON"] = "2026-27"
+        df = pd.concat([df, leftover_rows], ignore_index = True)
 
-stat_columns = teams_df.select_dtypes(include="number").columns.difference(METADATA_COLS)
-teams_df.loc[teams_df["SEASON"] == "2026-27", stat_columns] = 0
-df_26_27 = teams_df[teams_df["SEASON"] == "2026-27"].copy()
+        if dataset["zeroes"]:
+            stat_cols = df.select_dtypes(include="number").columns.difference(dataset["metadata_cols"])
+            df.loc[df["SEASON"] == "2026-27", stat_cols] = 0
 
-teams_df.to_csv(team_dataset, index = False)
-df_26_27.to_csv(output_path, index = False)
-print("Successfully added NBA 26/27 roster data to player_team_dataset_2026_27.csv")
+        df_2026_27 = df[df["SEASON"] == "2026-27"].copy()
+    else:
+        df_2026_27 = df[df["2026_27_SALARY"].notna()].copy() if "2026_27_SALARY" in df.columns else df.copy()
+    
+    df.to_csv(input_path, index=False)
+    df_2026_27.to_csv(dataset["output_path"], index=False)
+
+    print(f"Successfully processed {dataset['name']} files.")
