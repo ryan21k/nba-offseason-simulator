@@ -28,6 +28,7 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Mike Conley", "NEW_TEAM": "BOS"},
     {"PLAYER_NAME": "Mitchell Robinson", "NEW_TEAM": "BOS"},
     {"PLAYER_NAME": "Julius Randle", "NEW_TEAM": "BKN"},
+    {"PLAYER_NAME": "Moritz Wagner", "NEW_TEAM": "BKN"},
     {"PLAYER_NAME": "Naz Reid", "NEW_TEAM": "CHA"},
     {"PLAYER_NAME": "Grayson Allen", "NEW_TEAM": "CHA"},
     {"PLAYER_NAME": "Royce O'Neal", "NEW_TEAM": "CHA"},
@@ -38,6 +39,7 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Zaccharie Risacher", "NEW_TEAM": "DAL"},
     {"PLAYER_NAME": "Marcus Sasser", "NEW_TEAM": "DAL"},
     {"PLAYER_NAME": "Santi Aldama", "NEW_TEAM": "DAL"},
+    {"PLAYER_NAME": "Marvin Bagley III", "NEW_TEAM": "DEN"},
     {"PLAYER_NAME": "Isaiah Joe", "NEW_TEAM": "DET"},
     {"PLAYER_NAME": "John Collins", "NEW_TEAM": "DET"},
     {"PLAYER_NAME": "Taurean Prince", "NEW_TEAM": "DET"},
@@ -45,6 +47,7 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Charles Bassey", "NEW_TEAM": "GSW"},
     {"PLAYER_NAME": "Marcus Smart", "NEW_TEAM": "HOU"},
     {"PLAYER_NAME": "Bogdan Bogdanović", "NEW_TEAM": "HOU"},
+    {"PLAYER_NAME": "JD Davison", "NEW_TEAM": "HOU"},
     {"PLAYER_NAME": "Kelly Oubre Jr.", "NEW_TEAM": "IND"},
     {"PLAYER_NAME": "Larry Nance Jr.", "NEW_TEAM": "IND"},
     {"PLAYER_NAME": "Brandon Ingram", "NEW_TEAM": "LAC"},
@@ -93,6 +96,7 @@ UPDATED_TRADES_AND_SIGNINGS = [
     {"PLAYER_NAME": "Ja Morant", "NEW_TEAM": "POR"},
     {"PLAYER_NAME": "Branden Carlson", "NEW_TEAM": "POR"},
     {"PLAYER_NAME": "Micah Potter", "NEW_TEAM": "POR"},
+    {"PLAYER_NAME": "Blake Wesley", "NEW_TEAM": "POR"},
     {"PLAYER_NAME": "Jonathan Mogbo", "NEW_TEAM": "SAC"},
     {"PLAYER_NAME": "Tobias Harris", "NEW_TEAM": "SAS"},
     {"PLAYER_NAME": "Kawhi Leonard", "NEW_TEAM": "TOR"},
@@ -110,7 +114,7 @@ for dataset in DATASETS:
     if not input_path.exists():
         print(f"Skipping {dataset["name"]} due to file not being found.")
         continue
-    df = pd.read_csv(input_path)
+    df = pd.read_csv(input_path, skipinitialspace = True)
     new_rows = []
     has_season = "SEASON" in df.columns
 
