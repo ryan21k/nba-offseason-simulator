@@ -13,7 +13,7 @@ player_projections["SCALED_MIN"] = player_projections["MIN"] * (REGULATION_MINUT
 
 stats = ["PTS", "REB", "AST", "STL", "BLK", "PLUS_MINUS"]
 for stat in stats:
-    player_projections[f"PROJECTED_{stat}"] = (player_projections[f"{stat}_PER36"] / 36) * player_projections["MIN"]
+    player_projections[f"PROJECTED_{stat}"] = (player_projections[f"{stat}_PER36"] / 36) * player_projections["SCALED_MIN"]
 team_projections = (player_projections.groupby("2026_27_TEAM").agg(PTS = ("PROJECTED_PTS", "sum"), REB = ("PROJECTED_REB", "sum"), AST = ("PROJECTED_AST", "sum"), STL = ("PROJECTED_STL", "sum"), BLK = ("PROJECTED_BLK", "sum"), PLUS_MINUS_SUM = ("PROJECTED_PLUS_MINUS", "sum"), TOTAL_SALARY = ("2026_27_SALARY_CLEAN", "sum"), ROSTER_COUNT = ("PLAYER_NAME", "count")).reset_index())
 
 team_projections["PLUS_MINUS"] = team_projections["PLUS_MINUS_SUM"] / 5
